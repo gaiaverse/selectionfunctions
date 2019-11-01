@@ -4,6 +4,7 @@
 *.ipynb
 *.dat
 *.bak
+.DS_Store
 dist/
 venv/
 docs/_build/
