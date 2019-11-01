@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 #
 # unstructured_map.py
-# Implements a class for querying dust maps with unstructured pixels. Sky
+# Implements a class for querying selection functions with unstructured pixels. Sky
 # coordinates are assigned to the nearest pixel.
 #
-# Copyright (C) 2016  Gregory M. Green
+# Copyright (C) 2019  Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,12 +28,12 @@ import astropy.coordinates as coordinates
 import astropy.units as units
 from scipy.spatial import cKDTree as KDTree
 
-from .map_base import DustMap
+from .map_base import SelectionFunction
 
 
-class UnstructuredDustMap(DustMap):
+class UnstructuredSelectionFunction(SelectionFunction):
     """
-    A class for querying dust maps with unstructured pixels. Sky coordinates are
+    A class for querying selection functions with unstructured pixels. Sky coordinates are
     assigned to the nearest pixel.
     """
 

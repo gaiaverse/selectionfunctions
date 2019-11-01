@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 #
 # equirectangular_map.py
-# Implements a class for querying dust maps that are stored in an 
+# Implements a class for querying selection functions that are stored in an 
 # Equirectangular projection.
 #
-# Copyright (C) 2019  Gregory M. Green
+# Copyright (C) 2019  Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,12 +29,12 @@ import astropy.units as units
 from scipy.spatial import cKDTree as KDTree
 from astropy.coordinates import Longitude
 
-from .map_base import DustMap, ensure_flat_coords
+from .map_base import SelectionFunction, ensure_flat_coords
 
 
-class EquirectangularDustMap(DustMap):
+class EquirectangularSelectionFunction(SelectionFunction):
     """
-    A class for querying dust maps stored in an Equirectangular
+    A class for querying selection functions stored in an Equirectangular
     projection. The maps may optionally include distances as well.
     """
 
@@ -46,9 +46,9 @@ class EquirectangularDustMap(DustMap):
         """
         Args:
             pix_values (:obj:`np.ndarray`): An array containing the pixel
-                values. For a 3D dust map (with distance), the array should be
+                values. For a 3D selection function (with distance), the array should be
                 3D, with the order of the axes corresponding to
-                :obj:`axis_order`. For a 2D dust map, the array should be 2D.
+                :obj:`axis_order`. For a 2D selection function, the array should be 2D.
             lon0 (float): The lower limiting longitude of the map, in deg.
             lon1 (float): The upper limiting longitude of the map, in deg.
             lat0 (float): The lower limiting latitude of the map, in deg.
@@ -222,7 +222,7 @@ class EquirectangularDustMap(DustMap):
         # Include distance indices
         if self._axis_dist is not None:
             if diff:
-                # For differential reddening, need:
+                # For differential selection function, need:
                 #   1. Index of distance bin just beyond d
                 #   2. Mask of out-of-bounds (lon, lat)
                 #   3. Mask of which pixels are closer than closest slice
@@ -250,7 +250,7 @@ class EquirectangularDustMap(DustMap):
     @ensure_flat_coords
     def query(self, coords, diff=False):
         """
-        Returns the cumulative reddening or reddening density (in mag/kpc)
+        Returns the selection function or reddening density (in mag/kpc)
         at the given coordinates.
 
         Args:

@@ -3,7 +3,7 @@
 # healpix_map.py
 # A set of HEALPix map classes.
 #
-# Copyright (C) 2016  Gregory M. Green
+# Copyright (C) 2019  Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,10 +26,10 @@ import six
 import healpy as hp
 import astropy.io.fits as fits
 
-from .map_base import DustMap, coord2healpix
+from .map_base import SelectionFunction, coord2healpix
 
 
-class HEALPixQuery(DustMap):
+class HEALPixQuery(SelectionFunction):
     """
     A class for querying HEALPix maps.
     """

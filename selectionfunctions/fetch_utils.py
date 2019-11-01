@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 #
 # fetch_utils.py
-# Utility funcgtions for fetching data files required by the dustmaps library.
+# Utility funcgtions for fetching data files required by the selection functions library.
 #
-# Copyright (C) 2016  Gregory M. Green
+# Copyright (C) 2019  Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

@@ -9,7 +9,7 @@
 #     numpy.floating
 #     numpy.integer
 #
-# Copyright (C) 2016-2017  Gregory M. Green
+# Copyright (C) 2019  Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
