@@ -3,7 +3,7 @@
 # dustexceptions.py
 # Defines exceptions for the dustmaps package.
 #
-# Copyright (C) 2016  Gregory M. Green
+# Copyright (C) 2019  Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,14 +32,14 @@ class CoordFrameError(Error):
 
 
 def data_missing_message(package, name):
-    return ("The {name} dust map is not in the data directory:\n\n"
+    return ("The {name} selection function is not in the data directory:\n\n"
             "    {data_dir}\n\n"
             "To change the data directory, call:\n\n"
-            "    from dustmaps.config import config\n"
+            "    from selectionfunctions.config import config\n"
             "    config['data_dir'] = '/path/to/data/directory'\n\n"
-            "To download the {name} map to the data directory, call:\n\n"
-            "    import dustmaps.{package}\n"
-            "    dustmaps.{package}.fetch()\n").format(
+            "To download the {name} selection function to the data directory, call:\n\n"
+            "    import selectionfunctions.{package}\n"
+            "    selectionfunctions.{package}.fetch()\n").format(
                 data_dir=std_paths.data_dir(),
                 package=package,
                 name=name)

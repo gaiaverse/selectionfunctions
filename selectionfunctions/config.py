@@ -3,7 +3,7 @@
 # config.py
 # Allow configuration options to be set.
 #
-# Copyright (C) 2016  Gregory M. Green
+# Copyright (C) 2019  Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -51,11 +51,11 @@ class Configuration(object):
                            '    {fname}\n\n'
                            'Either fix the config file manually, or overwrite '
                            'it with a blank configuration as follows:\n\n'
-                           '    from dustmaps.config import config\n'
+                           '    from selectionfunctions.config import config\n'
                            '    config.reset()\n\n'
                            'Note that this will delete your configuration! For '
                            'example, if you have specified a data directory, '
-                           'then dustmaps will forget about its location.'
+                           'then selectionfunctions will forget about its location.'
                           ).format(fname=self.fname))
                     self._options = {}
         else:
@@ -84,7 +84,7 @@ class Configuration(object):
                 'Before attempting to save the configuration, please either '
                 'fix the config file manually, or overwrite it with a blank '
                 'configuration as follows:\n\n'
-                '    from dustmaps.config import config\n'
+                '    from selectionfunctions.config import config\n'
                 '    config.reset()\n\n'
                 ).format(fname=self.fname))
 
@@ -123,14 +123,14 @@ class Configuration(object):
 
 
 # The package configuration filename
-config_fname = os.path.expanduser('~/.dustmapsrc')
+config_fname = os.path.expanduser('~/.selectionfunctionsrc')
 
 #: The package configuration. This is the object that the user should interact
 #: with in order to change settings. For example, to set the directory where
-#: large files (e.g., dust maps) will be stored:
+#: large files (e.g., selections functions) will be stored:
 #:
 #: .. code-block:: python
 #:
-#:     from dustmaps.config import config
+#:     from selectionfunctions.config import config
 #:     config['data_dir'] = '/path/to/data/directory'
 config = Configuration(config_fname)

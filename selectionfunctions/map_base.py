@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 #
-# map2d.py
-# A generic interface to a 2D dust reddening map.
+# map_base.py
+# A generic interface to a 3D selection function.
 #
-# Copyright (C) 2016  Gregory M. Green
+# Copyright (C) 2019  Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ import requests
 import json
 
 from . import json_serializers
-from . import dustexceptions
+from . import sfexceptions
 
 # import time
 
@@ -55,7 +55,7 @@ def coord2healpix(coords, frame, nside, nest=True):
         SkyCoord coordinates (:obj:`coords.shape`).
 
     Raises:
-        :obj:`dustexceptions.CoordFrameError`: If the specified frame is not supported.
+        :obj:`sfexceptions.CoordFrameError`: If the specified frame is not supported.
     """
     if coords.frame.name != frame:
         c = coords.transform_to(frame)
@@ -363,9 +363,9 @@ def web_api_method(url,
 
 
 
-class DustMap(object):
+class SelectionFunction(object):
     """
-    Base class for querying dust maps. For each individual dust map, a different
+    Base class for querying selectionfunctions. For each individual selection function, a different
     subclass should be written, implementing the :obj:`query()` function.
     """
 
@@ -375,25 +375,25 @@ class DustMap(object):
     @ensure_coord_type
     def __call__(self, coords, **kwargs):
         """
-        An alias for :obj:`DustMap.query`.
+        An alias for :obj:`SelectionFunction.query`.
         """
         return self.query(coords, **kwargs)
 
     def query(self, coords, **kwargs):
         """
-        Query the map at a set of coordinates.
+        Query the selection function at a set of coordinates.
 
         Args:
             coords (:obj:`astropy.coordinates.SkyCoord`): The coordinates at which to
-                query the map.
+                query the selection function.
 
         Raises:
             :obj:`NotImplementedError`: This function must be defined by derived
                 classes.
         """
         raise NotImplementedError(
-            '`DustMap.query` must be implemented by subclasses.\n'
-            'The `DustMap` base class should not itself be used.')
+            '`SelectionFunction.query` must be implemented by subclasses.\n'
+            'The `SelectionFunction` base class should not itself be used.')
 
     def query_gal(self, l, b, d=None, **kwargs):
         """
@@ -480,20 +480,20 @@ class DustMap(object):
         return self.query(coords, **kwargs)
 
 
-class WebDustMap(object):
+class WebSelectionFunction(object):
     """
-    Base class for querying dust maps through a web API. For each individual
-    dust map, a different subclass should be written, specifying the base URL.
+    Base class for querying selection functions through a web API. For each individual
+    selection functions, a different subclass should be written, specifying the base URL.
     """
 
     def __init__(self, api_url=None, map_name=''):
         """
-        Initialize the :obj:`WebDustMap` object.
+        Initialize the :obj:`WebSelectionFunctions` object.
 
         Args:
             api_url (Optional[:obj:`str`]): The base URL for the API. Defaults to
                 ``'http://argonaut.skymaps.info/api/v2/'``.
-            map_name (Optional[:obj:`str`]): The name of the dust map to query. For
+            map_name (Optional[:obj:`str`]): The name of the selection function to query. For
                 example, the Green et al. (2015) dust map is hosted at
                 ``http://argonaut.skymaps.info/api/v2/bayestar2015``, so the
                 correct specifier for that map is ``map_name='bayestar2015'``.
@@ -513,19 +513,19 @@ class WebDustMap(object):
     @web_api_method('/query')
     def query(self, coords, **kwargs):
         """
-        A web API version of :obj:`DustMap.query`. See the documentation for the
+        A web API version of :obj:`SelectionFunction.query`. See the documentation for the
         corresponding local query object.
 
         Args:
             coords (:obj:`astropy.coordinates.SkyCoord`): The coordinates at which to
-                query the map.
+                query the selection function.
         """
         pass
 
     @web_api_method('/query')
     def query_gal(self, l, b, d=None, **kwargs):
         """
-        A web API version of :obj:`DustMap.query_gal()`. See the documentation for
+        A web API version of :obj:`SelectionFunction.query_gal()`. See the documentation for
         the corresponding local query object. Queries using Galactic
         coordinates.
 
@@ -548,7 +548,7 @@ class WebDustMap(object):
     @web_api_method('/query')
     def query_equ(self, ra, dec, d=None, frame='icrs', **kwargs):
         """
-        A web API version of :obj:`DustMap.query_equ()`. See the documentation for
+        A web API version of :obj:`SelectionFunction.query_equ()`. See the documentation for
         the corresponding local query object. Queries using Equatorial
         coordinates. By default, the ICRS frame is used, although other frames
         implemented by :obj:`astropy.coordinates` may also be specified.
