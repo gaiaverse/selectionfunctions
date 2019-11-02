@@ -34,6 +34,7 @@ import json
 
 from . import json_serializers
 from . import sfexceptions
+from .source_base import SourceCoord
 
 # import time
 
@@ -75,7 +76,7 @@ def coord2healpix(coords, frame, nside, nest=True):
     elif hasattr(c, 'w'):
         return hp.pixelfunc.vec2pix(nside, c.w.kpc, c.u.kpc, c.v.kpc, nest=nest)
     else:
-        raise dustexceptions.CoordFrameError(
+        raise sfexceptions.CoordFrameError(
             'No method to transform from coordinate frame "{}" to HEALPix.'.format(
                 frame))
 
@@ -158,6 +159,111 @@ def ensure_flat_frame(f, frame=None):
     return _wrapper_func
 
 
+def equ_to_shape(equ, shape):
+    ra = np.reshape(equ.ra.deg, shape)*units.deg
+    dec = np.reshape(equ.dec.deg, shape)*units.deg
+
+    has_dist = hasattr(equ.distance, 'kpc')
+    d = np.reshape(equ.distance.kpc, shape)*units.kpc if has_dist else None
+
+    has_photometry = equ.photometry is not None
+    if has_photometry:
+        photometry = {k:np.reshape(v, shape) for k,v in equ.photometry.items()}
+    else:
+        photometry = None
+
+    has_photometry_error = equ.photometry_error is not None
+    if has_photometry_error:
+        photometry_error = {k:np.reshape(v, shape) for k,v in equ.photometry_error.items()}
+    else:
+        photometry_error = None
+
+    return SourceCoord(ra, dec, distance=d, photometry=photometry, photometry_error=photometry_error, frame='icrs')
+
+def ensure_flat_icrs(f):
+    """
+    A decorator for class methods of the form
+
+    .. code-block:: python
+
+        Class.method(self, coords, **kwargs)
+
+    where ``coords`` is an :obj:`astropy.coordinates.SkyCoord` object.
+
+    The decorator ensures that the ``coords`` that gets passed to
+    ``Class.method`` is a flat array of Equatorial coordinates. It also reshapes
+    the output of ``Class.method`` to have the same shape (possibly scalar) as
+    the input ``coords``. If the output of ``Class.method`` is a tuple or list
+    (instead of an array), each element in the output is reshaped instead.
+
+    Args:
+        f (class method): A function with the signature
+            ``(self, coords, **kwargs)``, where ``coords`` is a :obj:`SkyCoord`
+            object containing an array.
+
+    Returns:
+        A function that takes :obj:`SkyCoord` input with any shape (including
+        scalar).
+    """
+
+    @wraps(f)
+    def _wrapper_func(self, coords, **kwargs):
+        # t0 = time.time()
+
+        if coords.frame.name != 'icrs':
+            equ = coords.transform_to('icrs')
+        else:
+            equ = coords
+
+        # t1 = time.time()
+
+        is_array = not coords.isscalar
+        if is_array:
+            orig_shape = coords.shape
+            shape_flat = (np.prod(orig_shape),)
+            # print 'Original shape: {}'.format(orig_shape)
+            # print 'Flattened shape: {}'.format(shape_flat)
+            equ = equ_to_shape(equ, shape_flat)
+        else:
+            equ = equ_to_shape(equ, (1,))
+
+        # t2 = time.time()
+
+        out = f(self, equ, **kwargs)
+
+        # t3 = time.time()
+
+        if is_array:
+            if isinstance(out, list) or isinstance(out, tuple):
+                # Apply to each array in output list
+                for o in out:
+                    o.shape = orig_shape + o.shape[1:]
+            else:   # Only one array in output
+                out.shape = orig_shape + out.shape[1:]
+        else:
+            if isinstance(out, list) or isinstance(out, tuple):
+                out = list(out)
+
+                # Apply to each array in output list
+                for k,o in enumerate(out):
+                    out[k] = o[0]
+            else:   # Only one array in output
+                out = out[0]
+
+        # t4 = time.time()
+
+        # print('')
+        # print('time inside ensure_flat_galactic: {:.4f} s'.format(t4-t0))
+        # print('{: >7.4f} s : {: >6.4f} s : transform_to("galactic")'.format(t1-t0, t1-t0))
+        # print('{: >7.4f} s : {: >6.4f} s : reshape coordinates'.format(t2-t0, t2-t1))
+        # print('{: >7.4f} s : {: >6.4f} s : execute query'.format(t3-t0, t3-t2))
+        # print('{: >7.4f} s : {: >6.4f} s : reshape output'.format(t4-t0, t4-t3))
+        # print('')
+
+        return out
+
+    return _wrapper_func
+
 def gal_to_shape(gal, shape):
     l = np.reshape(gal.l.deg, shape)*units.deg
     b = np.reshape(gal.b.deg, shape)*units.deg
@@ -166,7 +272,6 @@ def gal_to_shape(gal, shape):
     d = np.reshape(gal.distance.kpc, shape)*units.kpc if has_dist else None
 
     return coordinates.SkyCoord(l, b, distance=d, frame='galactic')
-
 
 def ensure_flat_galactic(f):
     """
