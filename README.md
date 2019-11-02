@@ -10,7 +10,7 @@ Supported Selection Functions
 
 The currently supported selection functions are:
 
-1. Boubert & Everall (2019; GaiaDR2, in prep.)
+1. Boubert & Everall (2019; boubert_everall_2019, in prep.)
 
 To request addition of another selection function in this package, [file an issue on
 GitHub](https://github.com/DouglasBoubert/selectionfunctions/issues), or submit a pull request.
@@ -26,7 +26,7 @@ then run:
 
 Alternatively, you can use the Python package manager `pip`:
 
-    pip install dustmaps
+    pip install selectionfunctions
 
 
 Getting the Data
@@ -34,56 +34,66 @@ Getting the Data
 
 To fetch the data for the GaiaDR2 selectionfunction, run:
 
-    python setup.py fetch --map-name=gaiadr2
+    python setup.py fetch --map-name=boubert_everall_2019
 
-You can download the other selection functions by changing "gaiadr2" to (other selection functions to be added in future).
+You can download the other selection functions by changing "boubert_everall_2019" to (other selection functions to be added in future).
 
-Alternatively, if you have used `pip` to install `selectionfunctions` (not yet available), then you can
+Alternatively, if you have used `pip` to install `selectionfunctions`, then you can
 configure the data directory and download the data by opening up a python
 interpreter and running:
 
     >>> from selectionfunctions.config import config
     >>> config['data_dir'] = '/path/where/you/want/large/data/files/stored'
     >>>
-    >>> import selectionfunctions.gaiadr2
-    >>> selectionfunctions.gaiadr2.fetch()
+    >>> import selectionfunctions.boubert_everall_2019
+    >>> selectionfunctions.boubert_everall_2019.fetch()
 
 
 Querying the Maps
 -----------------
 
-Maps are queried using
+Maps are queried using SourceCoord objects, which are a variant on the 
 [`astropy.coordinates.SkyCoord`](http://docs.astropy.org/en/stable/api/astropy.coordinates.SkyCoord.html#astropy.coordinates.SkyCoord)
-objects. This means that any coordinate system supported by `astropy` can be
-used as input. For example, we can query GaiaDR2 as follows:
+object. This means that any coordinate system supported by `astropy` can be
+used as input. For example, we can query BoubertEverall2019 as follows:
 
-    >>> from selectionfunctions.gaiadr2 import GaiaDR2Query
-    >>> from astropy.coordinates import SkyCoord
+    >>> from selectionfunctions.boubert_everall_2019 import BoubertEverall2019Query
+    >>> from selectionfunctions.source_base import SourceCoord
     >>>
-    >>> gaiadr2 = GaiaDR2Query()
+    >>> boubert_everall_2019 = BoubertEverall2019Query()
     >>>
-    >>> c = SkyCoord(
+    >>> c = SourceCoord(
             '05h00m00.00000s',
             '+30d00m00.0000s',
+            photometry={'gaia_g':21.2},
             frame='icrs')
-    >>> print gaiadr2(c)
+    >>> print(boubert_everall_2019(c))
+        0.619973910155382
 
 Above, we have used the ICRS coordinate system (the inputs are RA and Dec). We
 can use other coordinate systems, such as Galactic coordinates, and we can
 provide coordinate arrays. The following example uses both features:
 
-    >>> c = SkyCoord(
+    >>> c = SourceCoord(
             [75.00000000, 130.00000000],
             [-89.00000000, 10.00000000],
+            photometry={'gaia_g':[2.3,17.8]},
             frame='galactic',
             unit='deg')
-    >>> print gaiadr2(c)
+            c = SourceCoord(
+            np.array([75.00000000, 130.00000000]),
+            np.array([-89.00000000, 10.00000000]),
+            photometry={'gaia_g':np.array([2.3,17.8])},
+            frame='galactic',
+            unit='deg')
+    >>> print(boubert_everall_2019(c))
+    >>> [0.99919612 1.        ]
 
 
 Documentation
 -------------
 
-Read the full documentation at http://dustmaps.readthedocs.io/en/latest/.
+Read the full documentation at http://selectionfunctions.readthedocs.io/en/latest/.
 
 
 Citation
@@ -106,6 +116,8 @@ If you make use of this software in a publication, please cite
           adsnote = {Provided by the SAO/NASA Astrophysics Data System}
     }
 
+At present the `selectionfunctions` package is a copy-and-paste reuse of the `dustmaps` package, and thus the `dustmaps` 
+JOSS paper is the appropriate citation.
 
 Development
 -----------

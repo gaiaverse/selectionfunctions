@@ -33,6 +33,12 @@ class SourceCoord(coordinates.SkyCoord):
         self.photometry = photometry
         self.photometry_error = photometry_error
 
+    def transform_to(self,frame):
+        _return_sourcecoord = coordinates.SkyCoord.transform_to(self,frame)
+        _return_sourcecoord.photometry = self.photometry
+        _return_sourcecoord.photometry_error = self.photometry_error
+        return _return_sourcecoord
+
 def ensure_gaia_g(f):
     """
     A decorator for class methods of the form
@@ -66,6 +72,7 @@ def ensure_gaia_g(f):
         has_photometry = hasattr(coords, 'photometry')
         has_photometry_error = hasattr(coords, 'photometry_error')
         if has_photometry:
+            print(coords.photometry)
             has_gaia_g = 'gaia_g' in coords.photometry.keys()
             if has_gaia_g:
                 print('Gaia G magnitude was passed.')

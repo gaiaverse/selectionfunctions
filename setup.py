@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 #
 # setup.py
-# Package "dustmaps" for pip.
+# Package "selectionfunctions" for pip.
 #
-# Copyright (C) 2016  Gregory M. Green
+# Copyright (C) 2019  Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -50,73 +50,26 @@ class InstallCommand(install):
     def run(self):
         if not self.large_data_dir is None:
             print('Large data directory is set to: {}'.format(self.large_data_dir))
-            with open(os.path.expanduser('~/.dustmapsrc'), 'w') as f:
+            with open(os.path.expanduser('~/.selectionfunctionsrc'), 'w') as f:
                 json.dump({'data_dir': self.large_data_dir}, f, indent=2)
 
         # install.do_egg_install(self) # Due to bug in setuptools that causes old-style install
         install.run(self)
 
 
-def fetch_sfd():
-    import dustmaps.sfd
-    dustmaps.sfd.fetch()
-
-def fetch_planck():
-    import dustmaps.planck
-    dustmaps.planck.fetch()
-
-def fetch_bayestar(**kwargs):
-    import dustmaps.bayestar
-    dustmaps.bayestar.fetch(**kwargs)
-
-def fetch_iphas():
-    import dustmaps.iphas
-    dustmaps.iphas.fetch()
-
-def fetch_marshall():
-    import dustmaps.marshall
-    dustmaps.marshall.fetch()
-
-def fetch_chen2014():
-    import dustmaps.chen2014
-    dustmaps.chen2014.fetch()
-
-def fetch_leikeensslin2019():
-    import dustmaps.leike_ensslin_2019
-    dustmaps.leike_ensslin_2019.fetch()
-
-def fetch_lenz2017():
-    import dustmaps.lenz2017
-    dustmaps.lenz2017.fetch()
-
-def fetch_pg2010():
-    import dustmaps.pg2010
-    dustmaps.pg2010.fetch()
-
-def fetch_bh():
-    print('Burstein & Heiles (1982) is already installed by default.')
+def fetch_boubert_everall_2019():
+    import selectionfunctions.boubert_everall_2019
+    selectionfunctions.boubert_everall_2019.fetch()
 
 
 class FetchCommand(distutils.cmd.Command):
-    description = ('Fetch dust maps from the web, and store them in the data '
+    description = ('Fetch selection functions from the web, and store them in the data '
                    'directory.')
     user_options = [
-        ('map-name=', None, 'Which map to load.')]
+        ('map-name=', None, 'Which selection functions to load.')]
 
     map_funcs = {
-        'sfd': fetch_sfd,
-        'planck': fetch_planck,
-        'bayestar': fetch_bayestar,
-        'bayestar2015': lambda: fetch_bayestar(version='bayestar2015'),
-        'bayestar2017': lambda: fetch_bayestar(version='bayestar2017'),
-        'bayestar2019': lambda: fetch_bayestar(version='bayestar2019'),
-        'bh': fetch_bh,
-        'iphas': fetch_iphas,
-        'marshall': fetch_marshall,
-        'chen2014': fetch_chen2014,
-        'lenz2017': fetch_lenz2017,
-        'pg2010': fetch_pg2010,
-        'leikeensslin2019': fetch_leikeensslin2019
+        'boubert_everall_2019': fetch_boubert_everall_2019,
     }
 
     def initialize_options(self):
@@ -124,9 +77,9 @@ class FetchCommand(distutils.cmd.Command):
 
     def finalize_options(self):
         try:
-            import dustmaps
+            import selectionfunctions
         except ImportError:
-            print('You must install the package dustmaps before running the '
+            print('You must install the package selectionfunctions before running the '
                   'fetch command.')
         if not self.map_name in self.map_funcs:
             print('Valid map names are: {}'.format(self.map_funcs.keys()))
@@ -142,16 +95,16 @@ def readme():
 
 
 setup(
-    name='dustmaps',
-    version='1.0.4',
-    description='Uniform interface for multiple dust reddening maps.',
+    name='selectionfunctions',
+    version='0.1.0',
+    description='Uniform interface for the selection functions of astronomical surveys.',
     long_description=readme(),
-    url='https://github.com/gregreen/dustmaps',
-    download_url='https://github.com/gregreen/dustmaps/archive/v1.0.4.tar.gz',
-    author='Gregory M. Green',
-    author_email='gregorymgreen@gmail.com',
+    url='https://github.com/DouglasBoubert/selectionfunctions',
+    download_url='https://github.com/DouglasBoubert/selectionfunctions/archive/v0.1.0.tar.gz',
+    author='Douglas Boubert',
+    author_email='douglasboubert@gmail.com',
     license='GPLv2',
-    packages=['dustmaps'],
+    packages=['selectionfunctions'],
     install_requires=[
         'numpy',
         'scipy',
