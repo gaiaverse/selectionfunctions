@@ -58,11 +58,11 @@ object. This means that any coordinate system supported by `astropy` can be
 used as input. For example, we can query BoubertEverall2019 as follows:
 
     >>> from selectionfunctions.boubert_everall_2019 import BoubertEverall2019Query
-    >>> from selectionfunctions.source_base import SourceCoord
+    >>> from selectionfunctions.source_base import Source
     >>>
     >>> boubert_everall_2019 = BoubertEverall2019Query()
     >>>
-    >>> c = SourceCoord(
+    >>> c = Source(
             '05h00m00.00000s',
             '+30d00m00.0000s',
             photometry={'gaia_g':21.2},
@@ -74,7 +74,7 @@ Above, we have used the ICRS coordinate system (the inputs are RA and Dec). We
 can use other coordinate systems, such as Galactic coordinates, and we can
 provide coordinate arrays. The following example uses both features:
 
-    >>> c = SourceCoord(
+    >>> c = Source(
             [75.00000000, 130.00000000],
             [-89.00000000, 10.00000000],
             photometry={'gaia_g':[2.3,17.8]},
