@@ -1,12 +1,12 @@
 [![DOI](http://joss.theoj.org/papers/10.21105/joss.00695/status.svg)](https://doi.org/10.21105/joss.00695)
 
 selectionfunctions
-========
+==================
 
 The ``selectionfunctions`` package provides a uniform interface to the selection functions of the major astronomical surveys. This package is entirely derivative of the truly excellent ``dustmaps`` package created by Gregory M. Green. Please cite the ``dustmaps`` JOSS paper when using this package.
 
 Supported Selection Functions
--------------------
+-----------------------------
 
 The currently supported selection functions are:
 
@@ -68,7 +68,7 @@ used as input. For example, we can query BoubertEverall2019 as follows:
             photometry={'gaia_g':21.2},
             frame='icrs')
     >>> print(boubert_everall_2019(c))
-        0.619973910155382
+
 
 Above, we have used the ICRS coordinate system (the inputs are RA and Dec). We
 can use other coordinate systems, such as Galactic coordinates, and we can
@@ -80,14 +80,8 @@ provide coordinate arrays. The following example uses both features:
             photometry={'gaia_g':[2.3,17.8]},
             frame='galactic',
             unit='deg')
-            c = SourceCoord(
-            np.array([75.00000000, 130.00000000]),
-            np.array([-89.00000000, 10.00000000]),
-            photometry={'gaia_g':np.array([2.3,17.8])},
-            frame='galactic',
-            unit='deg')
     >>> print(boubert_everall_2019(c))
-    >>> [0.99919612 1.        ]
+
 
 
 Documentation
@@ -100,24 +94,7 @@ Citation
 --------
 
 If you make use of this software in a publication, please cite
-[Green (2018) in The Journal of Open Source Software](https://doi.org/10.21105/joss.00695):
-
-    @ARTICLE{2018JOSS....3..695M,
-           author = {{Green}, {Gregory M.}},
-            title = "{dustmaps: A Python interface for maps of interstellar dust}",
-          journal = {The Journal of Open Source Software},
-             year = "2018",
-            month = "Jun",
-           volume = {3},
-           number = {26},
-            pages = {695},
-              doi = {10.21105/joss.00695},
-           adsurl = {https://ui.adsabs.harvard.edu/abs/2018JOSS....3..695M},
-          adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-    }
-
-At present the `selectionfunctions` package is a copy-and-paste reuse of the `dustmaps` package, and thus the `dustmaps` 
-JOSS paper is the appropriate citation.
+[Green (2018) in The Journal of Open Source Software](https://doi.org/10.21105/joss.00695).
 
 Development
 -----------
