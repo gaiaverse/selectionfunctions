@@ -6,15 +6,15 @@
 selectionfunctions documentation
 ====================================
 
-:code:`dustmaps` provides a unified interface for several 2D and 3D
-maps of interstellar dust reddening and extinction.
+:code:`selectionfunctions` provides a unified interface for the selection functions of several major
+astronomical surveys. This module is entirely derivative of the excellent :code:`dustmaps` package by Gregory M. Green.
 
 To get started, take a look at :doc:`installation` and
-:doc:`examples`. To see a list of all available maps, take a look
-at :doc:`maps`. For a complete reference to the API, see
+:doc:`examples`. To see a list of all available selection functions, take a look
+at :doc:`selectionfunctions`. For a complete reference to the API, see
 :doc:`modules`.
 
-If you make use of :code:`dustmaps` in your research, please cite
+If you make use of :code:`selectionfunctions` in your research, please cite
 `Green (2018) <https://doi.org/10.21105/joss.00695>`_::
 
     @ARTICLE{2018JOSS....3..695M,
@@ -40,7 +40,7 @@ Contents
    
    installation
    examples
-   maps
+   selectionfunctions
    modules
    license
 
