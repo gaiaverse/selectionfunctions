@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-dustmaps documentation
+selectionfunctions documentation
 ====================================
 
 :code:`dustmaps` provides a unified interface for several 2D and 3D
