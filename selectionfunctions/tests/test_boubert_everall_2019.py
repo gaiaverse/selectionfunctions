@@ -33,7 +33,7 @@ import time
 
 from .. import boubert_everall_2019
 from ..std_paths import *
-from ..source_base import SourceCoord
+from ..source_base import Source
 
 class TestBoubertEverall2019(unittest.TestCase):
     @classmethod
@@ -53,7 +53,7 @@ class TestBoubertEverall2019(unittest.TestCase):
         ra = -180. + 360.*np.random.random(n_pix)
         dec = -75. + 90.*np.random.random(n_pix)    # 45 degrees above/below
         G = 23.5*np.random.random(n_pix)
-        c = SourceCoord(ra, dec, photometry={'gaia_g':G}, frame='icrs', unit='deg')
+        c = Source(ra, dec, photometry={'gaia_g':G}, frame='icrs', unit='deg')
 
         sf_calc = self._bouberteverall2019(c)
 
@@ -71,7 +71,7 @@ class TestBoubertEverall2019(unittest.TestCase):
         ra = -180. + 360.*np.random.random(n_pix)
         dec = -75. + 90.*np.random.random(n_pix)    # 45 degrees above/below
         G = -25+100*np.random.random(n_pix)
-        c = SourceCoord(ra, dec, photometry={'gaia_g':G}, frame='icrs', unit='deg')
+        c = Source(ra, dec, photometry={'gaia_g':G}, frame='icrs', unit='deg')
 
         sf_calc = self._bouberteverall2019(c)
 
@@ -97,7 +97,7 @@ class TestBoubertEverall2019(unittest.TestCase):
             ra = -180. + 360.*np.random.random(shape)
             dec = -90. + 180. * np.random.random(shape)
             G = 1.7+19.8*np.random.random(shape)
-            c = SourceCoord(ra, dec, photometry={'gaia_g':G}, frame='icrs', unit='deg')
+            c = Source(ra, dec, photometry={'gaia_g':G}, frame='icrs', unit='deg')
 
             sf_calc = self._bouberteverall2019(c)
 

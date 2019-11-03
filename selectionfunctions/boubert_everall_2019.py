@@ -163,7 +163,7 @@ class BoubertEverall2019Query(SelectionFunction):
 
     @ensure_flat_icrs
     @ensure_gaia_g
-    def query(self, coords):
+    def query(self, sources):
         """
         Returns the selection function at the requested coordinates.
 
@@ -176,13 +176,13 @@ class BoubertEverall2019Query(SelectionFunction):
         """
 
         # Convert coordinates to healpix indices
-        hpxidx = coord2healpix(coords, 'icrs', self._nside, nest=True)
+        hpxidx = coord2healpix(sources.coord, 'icrs', self._nside, nest=True)
 
         # Calculate the number of observations of each source
         n = self._n_field[hpxidx]
 
         # Extract Gaia G magnitude
-        G = coords.photometry['gaia_g']
+        G = sources.photometry.measurement['gaia_g']
 
         if self._crowding == True:
 

@@ -27,17 +27,15 @@ import astropy.units as units
 
 from functools import wraps
 
-class SourceCoord(coordinates.SkyCoord):
-    def __init__(self,*args,photometry=None,photometry_error=None,**kwargs):
-        coordinates.SkyCoord.__init__(self,*args,**kwargs)
-        self.photometry = photometry
-        self.photometry_error = photometry_error
+class Photometry():
+    def __init__(self,photometry,photometry_error):
+        self.measurement = {k:v for k,v in photometry.items()}
+        self.error = {k:v for k,v in photometry_error.items()} if photometry_error is not None else None
 
-    def transform_to(self,frame):
-        _return_sourcecoord = coordinates.SkyCoord.transform_to(self,frame)
-        _return_sourcecoord.photometry = self.photometry
-        _return_sourcecoord.photometry_error = self.photometry_error
-        return _return_sourcecoord
+class Source():
+    def __init__(self,*args,photometry=None,photometry_error=None,**kwargs):
+        self.coord = coordinates.SkyCoord(*args,**kwargs)
+        self.photometry = Photometry(photometry,photometry_error) if photometry is not None else None
 
 def ensure_gaia_g(f):
     """
@@ -66,14 +64,12 @@ def ensure_gaia_g(f):
     """
 
     @wraps(f)
-    def _wrapper_func(self, coords, **kwargs):
+    def _wrapper_func(self, sources, **kwargs):
         # t0 = time.time()
 
-        has_photometry = hasattr(coords, 'photometry')
-        has_photometry_error = hasattr(coords, 'photometry_error')
+        has_photometry = hasattr(sources, 'photometry')
         if has_photometry:
-            print(coords.photometry)
-            has_gaia_g = 'gaia_g' in coords.photometry.keys()
+            has_gaia_g = 'gaia_g' in sources.photometry.measurement.keys()
             if has_gaia_g:
                 print('Gaia G magnitude was passed.')
             else:
@@ -82,7 +78,7 @@ def ensure_gaia_g(f):
         else:
             raise ValueError('You need to pass in Gaia G-band photometric magnitudes to use this selection function.')
 
-        out = f(self, coords, **kwargs)
+        out = f(self, sources, **kwargs)
 
         return out
 

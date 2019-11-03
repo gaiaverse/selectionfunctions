@@ -33,7 +33,7 @@ except ImportError as error:
           'See <http://pillow.readthedocs.io/en/stable/installation.html>.')
     raise error
 
-from selectionfunctions.source_base import SourceCoord
+from selectionfunctions.source_base import Source
 import astropy.units as u
 
 from selectionfunctions.boubert_everall_2019 import BoubertEverall2019Query
@@ -67,11 +67,11 @@ def main():
 
     for k,G in enumerate([21.0, 21.2, 21.4]):
         # d = 5.    # We'll query integrated reddening to a distance of 5 kpc
-        coords = SourceCoord(l*u.deg, b*u.deg, photometry={'gaia_g':G*np.ones(l.shape)}, frame='galactic')
+        sources = Source(l*u.deg, b*u.deg, photometry={'gaia_g':G*np.ones(l.shape)}, frame='galactic')
 
         # Get the dust median reddening at each coordinate
         print('Querying map...')
-        sf[:,:,k] = boubert_everall_2019.query(coords)
+        sf[:,:,k] = boubert_everall_2019.query(sources)
 
     # Convert the output array to a PIL image and save
     print('Saving image...')

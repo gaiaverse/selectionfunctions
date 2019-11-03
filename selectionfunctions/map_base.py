@@ -31,10 +31,11 @@ from functools import wraps
 import inspect
 import requests
 import json
+import copy
 
 from . import json_serializers
 from . import sfexceptions
-from .source_base import SourceCoord
+from .source_base import Source
 
 # import time
 
@@ -105,10 +106,10 @@ def ensure_coord_type(f):
         the same as the decorated function.
     """
     @wraps(f)
-    def _wrapper_func(self, coords, **kwargs):
-        if not isinstance(coords, coordinates.SkyCoord):
-            raise TypeError('`coords` must be an astropy.coordinates.SkyCoord object.')
-        return f(self, coords, **kwargs)
+    def _wrapper_func(self, sources, **kwargs):
+        if not isinstance(sources, Source):
+            raise TypeError('`sources` must be a selectionfunctions.Source object.')
+        return f(self, sources, **kwargs)
     return _wrapper_func
 
 
@@ -160,25 +161,26 @@ def ensure_flat_frame(f, frame=None):
 
 
 def equ_to_shape(equ, shape):
-    ra = np.reshape(equ.ra.deg, shape)*units.deg
-    dec = np.reshape(equ.dec.deg, shape)*units.deg
+    ra = np.reshape(equ.coord.ra.deg, shape)*units.deg
+    dec = np.reshape(equ.coord.dec.deg, shape)*units.deg
 
-    has_dist = hasattr(equ.distance, 'kpc')
-    d = np.reshape(equ.distance.kpc, shape)*units.kpc if has_dist else None
+    has_dist = hasattr(equ.coord.distance, 'kpc')
+    d = np.reshape(equ.coord.distance.kpc, shape)*units.kpc if has_dist else None
 
     has_photometry = equ.photometry is not None
     if has_photometry:
-        photometry = {k:np.reshape(v, shape) for k,v in equ.photometry.items()}
+        photometry = {k:np.reshape(v, shape) for k,v in equ.photometry.measurement.items()}
+
+        has_photometry_error = equ.photometry.error is not None
+        if has_photometry_error:
+            photometry_error = {k:np.reshape(v, shape) for k,v in equ.photometry.error.items()}
+        else:
+            photometry_error = None
     else:
         photometry = None
-
-    has_photometry_error = equ.photometry_error is not None
-    if has_photometry_error:
-        photometry_error = {k:np.reshape(v, shape) for k,v in equ.photometry_error.items()}
-    else:
         photometry_error = None
 
-    return SourceCoord(ra, dec, distance=d, photometry=photometry, photometry_error=photometry_error, frame='icrs')
+    return Source(ra, dec, distance=d, photometry=photometry, photometry_error=photometry_error, frame='icrs')
 
 def ensure_flat_icrs(f):
     """
@@ -207,19 +209,18 @@ def ensure_flat_icrs(f):
     """
 
     @wraps(f)
-    def _wrapper_func(self, coords, **kwargs):
+    def _wrapper_func(self, sources, **kwargs):
         # t0 = time.time()
 
-        if coords.frame.name != 'icrs':
-            equ = coords.transform_to('icrs')
-        else:
-            equ = coords
+        equ = copy.copy(sources)
+        if equ.coord.frame.name != 'icrs':
+            equ.coord = equ.coord.transform_to('icrs')
 
         # t1 = time.time()
 
-        is_array = not coords.isscalar
+        is_array = not equ.coord.isscalar
         if is_array:
-            orig_shape = coords.shape
+            orig_shape = sources.coord.shape
             shape_flat = (np.prod(orig_shape),)
             # print 'Original shape: {}'.format(orig_shape)
             # print 'Flattened shape: {}'.format(shape_flat)
