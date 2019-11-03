@@ -96,11 +96,11 @@ def readme():
 
 setup(
     name='selectionfunctions',
-    version='0.1.0',
+    version='0.1.1',
     description='Uniform interface for the selection functions of astronomical surveys.',
     long_description=readme(),
     url='https://github.com/DouglasBoubert/selectionfunctions',
-    download_url='https://github.com/DouglasBoubert/selectionfunctions/archive/v0.1.0.tar.gz',
+    download_url='https://github.com/DouglasBoubert/selectionfunctions/archive/v0.1.1.tar.gz',
     author='Douglas Boubert',
     author_email='douglasboubert@gmail.com',
     license='GPLv2',
