@@ -3,7 +3,7 @@
 selectionfunctions
 ==================
 
-The ``selectionfunctions`` package provides a uniform interface to the selection functions of the major astronomical surveys. This package is entirely derivative of the truly excellent ``dustmaps`` package created by Gregory M. Green. Please cite the ``dustmaps`` JOSS paper when using this package.
+The ``selectionfunctions`` package provides a uniform interface to the selection functions of the major astronomical surveys. This package is entirely derivative of the truly excellent ``dustmaps`` package created by Gregory M. Green. Please cite the ``dustmaps`` JOSS paper when using this package (we aren't joking, we'll be sending you an email if you don't).
 
 Supported Selection Functions
 -----------------------------
