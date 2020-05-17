@@ -5,7 +5,7 @@ selectionfunctions
 
 The ``selectionfunctions`` package aspires to provide a uniform interface to the selection functions of the major astronomical surveys.
 This package is entirely derivative of the truly excellent ``dustmaps`` package created by Gregory M. Green.
-The ``selectionfunctions`` package is a product of the [Completeness of the *Gaia*-verse (CoG) project](https://www.gaiaverse.space/).
+The ``selectionfunctions`` package is a product of the [Completeness of the *Gaia*-verse (CoG)](https://www.gaiaverse.space/) collaboration.
 
 Supported Selection Functions
 -----------------------------
