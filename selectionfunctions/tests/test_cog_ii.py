@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 #
-# test_boubert_everall_2019.py
-# Test query code for the Boubert & Everall (2019) selection function.
+# test_cog_ii.py
+# Test query code for the Boubert & Everall (2020) selection function.
 #
-# Copyright (C) 2019  Douglas Boubert & Andrew Everall.
+# Copyright (C) 2020  Douglas Boubert & Andrew Everall.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,34 +31,35 @@ import os
 import re
 import time
 
-from .. import boubert_everall_2019
+from .. import cog_ii
 from ..std_paths import *
-from ..source_base import Source
+from ..source import Source
 
-class TestBoubertEverall2019(unittest.TestCase):
+class TestCoGII(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        print('Loading BoubertEverall2019 query object ...')
+        print('Loading cog_ii.dr2_sf query object ...')
         t0 = time.time()
 
-        # Set up Bayestar query object
-        self._bouberteverall2019 = boubert_everall_2019.BoubertEverall2019Query()
+        # Set up query object
+        self._cog_ii_dr2_sf = cog_ii.dr2_sf(crowding=True)
 
         t1 = time.time()
-        print('Loaded BoubertEverall2019 test function in {:.5f} s.'.format(t1-t0))
+        print('Loaded cog_ii.dr2_sf test function in {:.5f} s.'.format(t1-t0))
 
-    def atest_plot_selection_function(self):
+    def test_plot_selection_function(self):
         # Draw random coordinates, both above and below dec = -30 degree line
         n_pix = 100000
         ra = -180. + 360.*np.random.random(n_pix)
-        dec = -75. + 90.*np.random.random(n_pix)    # 45 degrees above/below
+        dec = -45. + 90.*np.random.random(n_pix)    # 45 degrees above/below
         G = 23.5*np.random.random(n_pix)
         c = Source(ra, dec, photometry={'gaia_g':G}, frame='icrs', unit='deg')
 
-        sf_calc = self._bouberteverall2019(c)
+        sf_calc = self._cog_ii_dr2_sf(c)
 
         import matplotlib.pyplot as plt
         plt.hexbin(G,sf_calc,mincnt=1)
+        #plt.savefig('./tests/test.png',dpi=500)
         plt.show()
 
     def test_bounds(self):
@@ -73,10 +74,10 @@ class TestBoubertEverall2019(unittest.TestCase):
         G = -25+100*np.random.random(n_pix)
         c = Source(ra, dec, photometry={'gaia_g':G}, frame='icrs', unit='deg')
 
-        sf_calc = self._bouberteverall2019(c)
+        sf_calc = self._cog_ii_dr2_sf(c)
 
-        zero_below = sf_calc[G < 1.7]<1e-8
-        zero_above = sf_calc[G > 21.5]<1e-8
+        zero_below = sf_calc[G < 0.0]<1e-8
+        zero_above = sf_calc[G > 25.0]<1e-8
 
         # print r'{:s}: {:.5f}% nan above dec=-25 deg.'.format(mode, 100.*pct_nan_above)
 
@@ -99,7 +100,7 @@ class TestBoubertEverall2019(unittest.TestCase):
             G = 1.7+19.8*np.random.random(shape)
             c = Source(ra, dec, photometry={'gaia_g':G}, frame='icrs', unit='deg')
 
-            sf_calc = self._bouberteverall2019(c)
+            sf_calc = self._cog_ii_dr2_sf(c)
 
             np.testing.assert_equal(sf_calc.shape[:n_dim], shape)
 

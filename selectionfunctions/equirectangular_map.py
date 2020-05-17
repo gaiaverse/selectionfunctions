@@ -4,7 +4,7 @@
 # Implements a class for querying selection functions that are stored in an 
 # Equirectangular projection.
 #
-# Copyright (C) 2019  Douglas Boubert
+# Copyright (C) 2020  Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

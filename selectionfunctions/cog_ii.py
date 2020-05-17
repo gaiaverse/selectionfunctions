@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 #
-# boubert_everall_2019.py
-# Reads the Gaia DR2 selection function from Boubert & Everall (2019, submitted).
+# cog_ii.py
+# Reads the Gaia DR2 selection function from Completeness 
+# of the Gaia-verse Paper II, Boubert & Everall (2020).
 #
-# Copyright (C) 2019  Douglas Boubert & Andrew Everall
+# Copyright (C) 2020  Douglas Boubert & Andrew Everall
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,14 +34,14 @@ import healpy as hp
 from scipy import interpolate, special
 
 from .std_paths import *
-from .map_base import SelectionFunction, ensure_flat_icrs, coord2healpix
-from .source_base import ensure_gaia_g
+from .map import SelectionFunction, ensure_flat_icrs, coord2healpix
+from .source import ensure_gaia_g
 from . import fetch_utils
 
 from time import time
 
 
-class BoubertEverall2019Query(SelectionFunction):
+class dr2_sf(SelectionFunction):
     """
     Queries the Gaia DR2 selection function (Boubert & Everall, 2019).
     """
@@ -60,21 +61,22 @@ class BoubertEverall2019Query(SelectionFunction):
         """
 
         if map_fname is None:
-            map_fname = os.path.join(data_dir(), 'boubert_everall_2019', 'boubert_everall_2019.h5')
+            map_fname = os.path.join(data_dir(), 'cog_ii', 'cog_ii_dr2.h5')
 
         t_start = time()
         
         with h5py.File(map_fname, 'r') as f:
             # Load auxilliary data
             print('Loading auxilliary data ...')
-            self._nside = 1024
+            self._nside = 4096
             self._g_grid = f['g_grid'][...]
             self._n_field = f['n_field'][...]
             self._crowding = crowding
             self._bounds = bounds
             if crowding == True:
+                self._nside_crowding = 1024
                 self._log10_rho_grid = f['log10_rho_grid'][...]
-                self._rho_field= f['density_field'][...]
+                self._log10_rho_field = np.log10(np.maximum(1.0,f['neighbour_field'][...])/hp.nside2pixarea(self._nside_crowding,degrees=True))
             
             t_auxilliary = time()
 
@@ -94,8 +96,8 @@ class BoubertEverall2019Query(SelectionFunction):
                     self._beta = f['ab_beta_percentiles'][0,:,2]
             
             if bounds == True:
-                self._g_min = 1.7
-                self._g_max = 21.5
+                self._g_min = 0.0
+                self._g_max = 25.0
             else:
                 self._g_min = -np.inf
                 self._g_max = np.inf
@@ -107,10 +109,10 @@ class BoubertEverall2019Query(SelectionFunction):
         if version == 'modelT':
             if crowding == True:
                 self._theta_interpolator = interpolate.RectBivariateSpline(self._log10_rho_grid,self._g_grid,self._theta)
-                self._interpolator = lambda _log10_rho, _g : self._theta_interpolator(_log10_rho, _g, grid = False)
+                self._interpolator = lambda _log10_rho, _g : (self._theta_interpolator(_log10_rho, _g, grid = False),)
             else:
                 self._theta_interpolator = interpolate.interp1d(self._g_grid,self._theta,kind='linear',fill_value='extrapolate')
-                self._interpolator = lambda _g : self._theta_interpolator(_g)
+                self._interpolator = lambda _g : (self._theta_interpolator(_g),)
         elif version == 'modelAB':
             if crowding == True:
                 self._alpha_interpolator = interpolate.RectBivariateSpline(self._log10_rho_grid,self._g_grid,self._alpha)
@@ -134,7 +136,7 @@ class BoubertEverall2019Query(SelectionFunction):
         if len(_parameters) == 1:
 
             # This must be Model T, _parameters = (theta)
-            _t = _parameters
+            _t = _parameters[0]
 
             # 0 < theta < 1, make it so!
             _t[_t<0.0] = 1e-6
@@ -147,11 +149,11 @@ class BoubertEverall2019Query(SelectionFunction):
             # This must be Model AB, _parameters = (alpha,beta)
             _a, _b = _parameters
 
-            # 0.01 < alpha,beta < 1000, make it so!
-            _a[_a<1e-2] = 1e-2
-            _a[_a>1e+2] = 1e+2
-            _b[_b<1e-2] = 1e-2
-            _b[_b>1e+2] = 1e+2
+            # 0.1 < alpha,beta < 10000, make it so!
+            _a[_a<1e-1] = 1e-1
+            _a[_a>1e+4] = 1e+4
+            _b[_b<1e-1] = 1e-1
+            _b[_b>1e+4] = 1e+4
 
             _result = np.ones(_a.shape)
             for _m in range(1,5)[::-1]:
@@ -186,8 +188,11 @@ class BoubertEverall2019Query(SelectionFunction):
 
         if self._crowding == True:
 
+            # Work out HEALPix index in crowding nside
+            hpxidx_crowding = np.floor(hpxidx * hp.nside2npix(self._nside_crowding) / hp.nside2npix(self._nside)).astype(np.int)
+
             # Calculate the local density field at each source
-            log10_rho = self._log10_rho_field[hpxidx]
+            log10_rho = self._log10_rho_field[hpxidx_crowding]
 
             # Calculate parameters
             sf_parameters = self._interpolator(log10_rho,G)
@@ -230,9 +235,9 @@ def fetch():
 
     doi = '10.7910/DVN/PDFOVC'
 
-    requirements = {'filename': 'boubert_everall_2019.h5'}
+    requirements = {'filename': 'cog_ii_dr2.h5'}
 
-    local_fname = os.path.join(data_dir(), 'boubert_everall_2019', 'boubert_everall_2019.h5')
+    local_fname = os.path.join(data_dir(), 'cog_ii', 'cog_ii_dr2.h5')
 
     # Download the data
     fetch_utils.dataverse_download_doi(

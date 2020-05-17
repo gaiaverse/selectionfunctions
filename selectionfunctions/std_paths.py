@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 #
 # std_paths.py
-# Defines a set of paths used by scripts in the dustmaps module.
+# Defines a set of paths used by scripts in the selectionfunctions module.
 #
-# Copyright (C) 2019 Douglas Boubert
+# Copyright (C) 2020 Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

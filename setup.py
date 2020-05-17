@@ -57,9 +57,9 @@ class InstallCommand(install):
         install.run(self)
 
 
-def fetch_boubert_everall_2019():
-    import selectionfunctions.boubert_everall_2019
-    selectionfunctions.boubert_everall_2019.fetch()
+def fetch_cog_ii():
+    import selectionfunctions.cog_ii
+    selectionfunctions.cog_ii.fetch()
 
 
 class FetchCommand(distutils.cmd.Command):
@@ -69,7 +69,7 @@ class FetchCommand(distutils.cmd.Command):
         ('map-name=', None, 'Which selection functions to load.')]
 
     map_funcs = {
-        'boubert_everall_2019': fetch_boubert_everall_2019,
+        'cog_ii': fetch_cog_ii,
     }
 
     def initialize_options(self):

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 #
-# map_base.py
+# map.py
 # A generic interface to a 3D selection function.
 #
-# Copyright (C) 2019  Douglas Boubert
+# Copyright (C) 2020  Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@ import copy
 
 from . import json_serializers
 from . import sfexceptions
-from .source_base import Source
+from .source import Source
 
 # import time
 

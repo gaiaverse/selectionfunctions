@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 #
-# source_base.py
+# source.py
 # Provides a new class that extends astropy SkyCoord.
 #
-# Copyright (C) 2019  Douglas Boubert
+# Copyright (C) 2020  Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -71,7 +71,7 @@ def ensure_gaia_g(f):
         if has_photometry:
             has_gaia_g = 'gaia_g' in sources.photometry.measurement.keys()
             if has_gaia_g:
-                print('Gaia G magnitude was passed.')
+                pass
             else:
                 print('No Gaia G passed, but transformation is not yet implemented.')
                 raise ValueError('You need to pass in Gaia G-band photometric magnitudes to use this selection function.')

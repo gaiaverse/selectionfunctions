@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 #
-# dustexceptions.py
-# Defines exceptions for the dustmaps package.
+# sfexceptions.py
+# Defines exceptions for the selectionfunctions package.
 #
-# Copyright (C) 2019  Douglas Boubert
+# Copyright (C) 2020  Douglas Boubert
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
