@@ -49,25 +49,25 @@ interpreter and running:
     >>> selectionfunctions.cog_ii.fetch()
 
 
-Querying the Maps
+Querying the selection functions
 -----------------
 
-Maps are queried using SourceCoord objects, which are a variant on the 
+Selection functions are queried using Source objects, which are a variant on the 
 [`astropy.coordinates.SkyCoord`](http://docs.astropy.org/en/stable/api/astropy.coordinates.SkyCoord.html#astropy.coordinates.SkyCoord)
 object. This means that any coordinate system supported by `astropy` can be
-used as input. For example, we can query BoubertEverall2019 as follows:
+used as input. For example, we can query the Gaia DR2 selection function as follows:
 
-    >>> from selectionfunctions.boubert_everall_2019 import BoubertEverall2019Query
-    >>> from selectionfunctions.source_base import Source
+    >>> import selectionfunctions.cog_ii as CoGII
+    >>> from selectionfunctions.source import Source
     >>>
-    >>> boubert_everall_2019 = BoubertEverall2019Query()
+    >>> dr2_sf = CoGII.dr2_sf()
     >>>
     >>> c = Source(
-            '05h00m00.00000s',
-            '+30d00m00.0000s',
-            photometry={'gaia_g':21.2},
+            '22h54m51.68s',
+            '-51d11m44.19s',
+            photometry={'gaia_g':16.02},
             frame='icrs')
-    >>> print(boubert_everall_2019(c))
+    >>> print(dr2_sf(c))
 
 
 Above, we have used the ICRS coordinate system (the inputs are RA and Dec). We
@@ -80,7 +80,7 @@ provide coordinate arrays. The following example uses both features:
             photometry={'gaia_g':[2.3,17.8]},
             frame='galactic',
             unit='deg')
-    >>> print(boubert_everall_2019(c))
+    >>> print(dr2_sf(c))
 
 
 
@@ -93,12 +93,16 @@ Read the full documentation at http://selectionfunctions.readthedocs.io/en/lates
 Citation
 --------
 
-If you make use of this software in a publication, please cite
+If you make use of this software in a publication, please always cite
 [Green (2018) in The Journal of Open Source Software](https://doi.org/10.21105/joss.00695).
+
+You should also cite the papers behind the selection functions you use.
+
+1. cog_ii.dr2_sf - Please cite Completeness of the Gaia-verse [Paper I](https://ui.adsabs.harvard.edu/abs/2020arXiv200414433B/abstract) and Paper II.
 
 Development
 -----------
 
 Development of `selectionfunctions` takes place on GitHub, at
-https://github.com/DouglasBoubert/selectionfunctions. Any bugs, feature requests, pull requests,
+https://github.com/gaiaverse/selectionfunctions. Any bugs, feature requests, pull requests,
 or other issues can be filed there. Contributions to the software are welcome.
