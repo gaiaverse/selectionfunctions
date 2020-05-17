@@ -10,16 +10,16 @@ Supported Selection Functions
 
 The currently supported selection functions are:
 
-1. Boubert & Everall (2019; boubert_everall_2019, in prep.)
+1. Gaia DR2 source catalogue (cog_ii.dr2_sf, Boubert & Everall 2020, submitted)
 
 To request addition of another selection function in this package, [file an issue on
-GitHub](https://github.com/DouglasBoubert/selectionfunctions/issues), or submit a pull request.
+GitHub](https://github.com/gaiaverse/selectionfunctions/issues), or submit a pull request.
 
 
 Installation
 ------------
 
-Download the repository from [GitHub](https://github.com/DouglasBoubert/selectionfunctions) and
+Download the repository from [GitHub](https://github.com/gaiaverse/selectionfunctions) and
 then run:
 
     python setup.py install --large-data-dir=/path/where/you/want/large/data/files/stored
@@ -34,9 +34,9 @@ Getting the Data
 
 To fetch the data for the GaiaDR2 selectionfunction, run:
 
-    python setup.py fetch --map-name=boubert_everall_2019
+    python setup.py fetch --map-name=cog_ii
 
-You can download the other selection functions by changing "boubert_everall_2019" to (other selection functions to be added in future).
+You can download the other selection functions by changing "cog_ii" to (other selection functions will be added in future).
 
 Alternatively, if you have used `pip` to install `selectionfunctions`, then you can
 configure the data directory and download the data by opening up a python
@@ -45,8 +45,8 @@ interpreter and running:
     >>> from selectionfunctions.config import config
     >>> config['data_dir'] = '/path/where/you/want/large/data/files/stored'
     >>>
-    >>> import selectionfunctions.boubert_everall_2019
-    >>> selectionfunctions.boubert_everall_2019.fetch()
+    >>> import selectionfunctions.cog_ii
+    >>> selectionfunctions.cog_ii.fetch()
 
 
 Querying the Maps
