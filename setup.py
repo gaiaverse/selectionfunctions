@@ -96,7 +96,7 @@ def readme():
 
 setup(
     name='selectionfunctions',
-    version='0.1.1',
+    version='0.2.0',
     description='Uniform interface for the selection functions of astronomical surveys.',
     long_description=readme(),
     url='https://github.com/DouglasBoubert/selectionfunctions',
