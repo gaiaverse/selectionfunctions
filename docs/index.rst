@@ -8,7 +8,7 @@ selectionfunctions documentation
 
 :code:`selectionfunctions` provides a unified interface for the selection functions of several major
 astronomical surveys. This module is entirely derivative of the excellent :code:`dustmaps` package by Gregory M. Green.
-The :code:`selectionfunctions` package is a product of the `Completeness of the Gaia-verse (CoG) <https://www.gaiaverse.space/>` collaboration.
+The :code:`selectionfunctions` package is a product of the `Completeness of the Gaia-verse (CoG) <https://www.gaiaverse.space/>`_ collaboration.
 
 To get started, take a look at :doc:`installation` and
 :doc:`examples`. To see a list of all available selection functions, take a look
