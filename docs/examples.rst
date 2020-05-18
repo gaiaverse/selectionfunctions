@@ -27,24 +27,20 @@ on the sky:
 
 .. code-block :: python
     
-    from __future__ import print_function
-    from astropy.coordinates import SkyCoord
-    from dustmaps.sfd import SFDQuery
+    from selectionfunctions.source import Source
+    from selectionfunctions import cog_ii
     
-    coords = SkyCoord('12h30m25.3s', '15d15m58.1s', frame='icrs')
-    sfd = SFDQuery()
-    ebv = sfd(coords)
+    coords = Source('12h30m25.3s', '15d15m58.1s', frame='icrs', photometry={'gaia_g':21.0})
+    dr2_sf = cog_ii.dr2_sf(version='modelAB',crowding=True)
+    prob_selection = dr2_sf(coords)
     
-    coords = SkyCoord('12h30m25.3s', '15d15m58.1s', frame='icrs')
-    print('E(B-V) = {:.3f} mag'.format(ebv))
+    print('Probability of selection = {:.3f}%'.format(prob_selection*100.0))
     
-    >>> E(B-V) = 0.030 mag
+    >>> Probability of selection = 69.877%
 
 A couple of things to note here:
 
-1. In this example, we used :python:`from __future__ import print_function` in
-   order to ensure compatibility with both Python 2 and 3.
-2. Above, we used the
+1. Above, we used the
    `ICRS coordinate system <https://en.wikipedia.org/wiki/International_Celestial_Reference_System>`_,
    by specifying :python:`frame='icrs'`.
 3. :python:`SFDQuery` returns reddening in a unit that is similar to magnitudes
