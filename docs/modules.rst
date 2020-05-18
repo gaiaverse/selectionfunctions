@@ -5,9 +5,9 @@ selectionfunctions modules
     :maxdepth: 4
 
 
-boubert_everall_2019 (Boubert & Everall, 2019, in prep.)
+cog_ii (Boubert & Everall, 2020, submitted)
 --------------------------------------------------------
-.. automodule:: selectionfunctions.boubert_everall_2019
+.. automodule:: selectionfunctions.cog_ii
     :members:
     :special-members:
     :show-inheritance:
@@ -20,16 +20,16 @@ fetch_utils
     :show-inheritance:
 
 
-map_base
+map
 --------
-.. automodule:: selectionfunctions.map_base
+.. automodule:: selectionfunctions.map
     :members:
     :special-members: __call__
     :show-inheritance:
 
-source_base
+source
 -----------
-.. automodule:: selectionfunctions.source_base
+.. automodule:: selectionfunctions.source
     :members:
     :special-members: __call__
     :show-inheritance:
