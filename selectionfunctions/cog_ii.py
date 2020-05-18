@@ -56,7 +56,7 @@ class dr2_sf(SelectionFunction):
                 Defaults to :obj:`'modelT'`.
             crowding (Optional[:obj:`bool`]): Whether or not the selection function includes crowding.
                 Defaults to :obj:`'False'`.
-            bounds (Optional[:obj:`bool`]): Whether or not the selection function is bounded to 1.7 < G < 21.5.
+            bounds (Optional[:obj:`bool`]): Whether or not the selection function is bounded to 0.0 < G < 25.0.
                 Defaults to :obj:`'True'`.
         """
 

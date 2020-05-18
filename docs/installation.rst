@@ -16,7 +16,7 @@ From the commandline, run
 
 You may have to use :code:`sudo`.
 
-Next, we'll configure the package and download the dust maps we'll want to use.
+Next, we'll configure the package and download the selection functions we'll want to use.
 Start up a python interpreter and type:
 
 .. code-block :: python
@@ -24,8 +24,8 @@ Start up a python interpreter and type:
     from selectionfunctions.config import config
     config['data_dir'] = '/path/to/store/maps/in'
     
-    import selectionfunctions.boubert_everall_2019
-    selectionfunctions.boubert_everall_2019.fetch()
+    import selectionfunctions.cog_ii
+    selectionfunctions.cog_ii.fetch()
 
 All the selection functions should now be in the path you gave to
 :code:`config['data_dir']`. Note that these selection functions can be very large - some
@@ -37,7 +37,7 @@ are several Gigabytes! Only download those you think you'll need.
 
 An alternative way to download :code:`selectionfunctions`, if you don't want to use
 :code:`pip`, is to download or clone the respository from
-https://https://github.com/DouglasBoubert/selectionfunctions.
+https://https://github.com/gaiaverse/selectionfunctions.
 
 
 In this case, you will have to manually make sure that the dependencies are
@@ -68,6 +68,6 @@ to only download those you think you'll need:
 
 .. code-block :: bash
     
-    python setup.py fetch --map-name=boubert_everall_2019
+    python setup.py fetch --map-name=cog_ii
 
 That's it!

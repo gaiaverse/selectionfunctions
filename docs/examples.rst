@@ -21,8 +21,8 @@ different units (e.g., degrees, radians,
 scalar or vector input.
 
 For our first example, let's load the
-`Boubert & Everall (2019, in prep.)`_
--- or "boubert_everall_2019" -- selection function for Gaia DR2, and then query the selection function of a G=21 source at one location
+`Boubert & Everall (2020, submitted)`
+-- or "cog_ii" -- selection function for Gaia DR2, and then query the selection function of a G=21 source at one location
 on the sky:
 
 .. code-block :: python
