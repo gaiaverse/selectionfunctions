@@ -43,33 +43,14 @@ A couple of things to note here:
 1. Above, we used the
    `ICRS coordinate system <https://en.wikipedia.org/wiki/International_Celestial_Reference_System>`_,
    by specifying :python:`frame='icrs'`.
-3. :python:`SFDQuery` returns reddening in a unit that is similar to magnitudes
-   of **E(B-V)**. However, care should be taken: a unit of SFD reddening is not
-   quite equivalent to a magnitude of **E(B-V)**. The way to correctly convert
-   SFD units to extinction in various broadband filters is to use the
-   conversions in
-   `Table 6 of Schlafly & Finkbeiner (2011) <http://iopscience.iop.org/0004-637X/737/2/103/article#apj398709t6>`_.
+2. We specified the apparent Gaia G magnitude of the star through a Python dictionary. Photometric transformations have not yet been implemented.
+3. We used the keywords :python:`version='modelAB'` and :python:`crowding=True` when constructing the selection function. By default, :python:`crowding=False`.
 
-We can query the other maps in the :code:`dustmaps` package with only minor
-modification to the above code. For example, here's how we would query the
-Planck Collaboration (2013) dust map:
-
-.. code-block :: python
-    
-    from __future__ import print_function
-    from astropy.coordinates import SkyCoord
-    from dustmaps.planck import PlanckQuery
-    
-    coords = SkyCoord('12h30m25.3s', '15d15m58.1s', frame='icrs')
-    planck = PlanckQuery()
-    ebv = planck(coords)
-    
-    print('E(B-V) = {:.3f} mag'.format(ebv))
-    
-    >>> E(B-V) = 0.035 mag
+In future, you will be able to query other selection funtions from the :code:`selectionfunctions` package with only minor
+modification to the above code.
 
 
-Querying Reddening at an Array of Coordinates
+Querying Selection Function at an Array of Coordinates
 ---------------------------------------------
 
 We can also query an array of coordinates, as follows:
@@ -77,56 +58,52 @@ We can also query an array of coordinates, as follows:
 
 .. code-block :: python
     
-    from __future__ import print_function
     import numpy as np
-    from astropy.coordinates import SkyCoord
-    from dustmaps.planck import PlanckQuery
-    from dustmaps.sfd import SFDQuery
+    from selectionfunctions.source import Source
+    from selectionfunctions import cog_ii
     
     l = np.array([0., 90., 180.])
     b = np.array([15., 0., -15.])
+    g = np.array([20.8,21.0,21.2])
     
-    coords = SkyCoord(l, b, unit='deg', frame='galactic')
+    coords = Source(l, b, unit='deg', frame='galactic', photometry={'gaia_g':g})
     
-    planck = PlanckQuery()
-    planck(coords)
-    >>> array([ 0.50170666,  1.62469053,  0.29259142])
-    
-    sfd = SFDQuery()
-    sfd(coords)
-    >>> array([ 0.55669367,  2.60569382,  0.37351534], dtype=float32)
+    dr2_sf = cog_ii.dr2_sf()
+    dr2_sf(coords)
+    >>> array([0.99997069, 0.96233884, 0.58957493])
 
 The input need not be a flat array. It can have any shape -- the shape of the
 output will match the shape of the input:
 
 .. code-block :: python
     
-    from __future__ import print_function
     import numpy as np
-    from astropy.coordinates import SkyCoord
-    from dustmaps.planck import PlanckQuery
+    from selectionfunctions.source import Source
+    from selectionfunctions import cog_ii
     
     l = np.linspace(0., 180., 12)
-    b = np.zeros(12, dtype='f8')
+    b = np.zeros(12)
+    g = 21.0*np.ones(12)
     l.shape = (3, 4)
     b.shape = (3, 4)
+    g.shape = (3, 4)
     
-    coords = SkyCoord(l, b, unit='deg', frame='galactic')
+    coords = Source(l, b, unit='deg', frame='galactic', photometry={'gaia_g':g})
     
-    planck = PlanckQuery()
+    dr2_sf = cog_ii.dr2_sf()
     
-    ebv = planck(coords)
+    prob_selection = dr2_sf(coords)
     
-    print(ebv)
-    >>> [[ 315.52438354   28.11778831   23.53047562   20.72829247]
-         [   2.20861101   15.68559361    1.46233201    1.70338535]
-         [   0.94013882    1.11140835    0.38023439    0.81017196]]
+    print(prob_selection)
+    >>> [[0.74045863 0.69877491 0.74045863 0.94768624]
+         [0.98794938 0.93834743 0.95561436 0.96803869]
+         [0.99962099 0.97286789 0.91445208 0.59940653]]
     
-    print(ebv.shape)
+    print(prob_selection.shape)
     >>> (3, 4)
 
 
-Plotting the Dust Maps
+Plotting a Selection Function
 ----------------------
 
 We'll finish by plotting a comparison of the SFD, Planck Collaboration and
