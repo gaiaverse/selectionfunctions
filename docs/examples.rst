@@ -106,78 +106,56 @@ output will match the shape of the input:
 Plotting a Selection Function
 ----------------------
 
-We'll finish by plotting a comparison of the SFD, Planck Collaboration and
-Bayestar Dust maps. First, we'll import the necessary modules:
+We'll finish by plotting the Gaia DR2 selection function. First, we'll import the necessary modules:
 
 .. code-block :: python
-    
-    from __future__ import print_function
     
     import matplotlib
     import matplotlib.pyplot as plt
     import numpy as np
     
     import astropy.units as units
-    from astropy.coordinates import SkyCoord
     
-    from dustmaps.sfd import SFDQuery
-    from dustmaps.planck import PlanckQuery
-    from dustmaps.bayestar import BayestarQuery
+    from selectionfunctions.source import Source
+    from selectionfunctions import cog_ii
 
-Next, we'll set up a grid of coordinates to plot, centered on the Aquila South
-cloud:
+Next, we'll set up a grid of coordinates to plot:
 
 .. code-block :: python
     
-    l0, b0 = (37., -16.)
-    l = np.arange(l0 - 5., l0 + 5., 0.05)
-    b = np.arange(b0 - 5., b0 + 5., 0.05)
+    l = np.linspace(-180.0, 180.0, 1000)
+    b = np.linspace(-90.0,90.0, 500)
     l, b = np.meshgrid(l, b)
-    coords = SkyCoord(l*units.deg, b*units.deg,
-                      distance=1.*units.kpc, frame='galactic')
+    g = 21.0*np.ones(l.shape)
+    coords = Source(l*units.deg, b*units.deg, frame='galactic', photometry={'gaia_g':g})
 
-Then, we'll load up and query three different dust maps:
+Then, we'll load up and query the Gaia DR2 selection function:
 
 .. code-block :: python
     
-    sfd = SFDQuery()
-    Av_sfd = 2.742 * sfd(coords)
-    
-    planck = PlanckQuery()
-    Av_planck = 3.1 * planck(coords)
-    
-    bayestar = BayestarQuery(max_samples=1)
-    Av_bayestar = 2.742 * bayestar(coords)
-
-We've assumed :math:`R_V = 3.1`, and used the coefficient from
-`Table 6 of Schlafly & Finkbeiner (2011) <http://iopscience.iop.org/0004-637X/737/2/103/article#apj398709t6>`_
-to convert SFD and Bayestar reddenings to magnitudes of :math:`A_V`.
+    dr2_sf = cog_ii.dr2_sf(version='modelAB',crowding=True)
+    prob_selection = dr2_sf(coords)
 
 Finally, we create the figure using :code:`matplotlib`:
 
 .. code-block :: python
     
     fig = plt.figure(figsize=(12,4), dpi=150)
-    
-    for k,(Av,title) in enumerate([(Av_sfd, 'SFD'),
-                                   (Av_planck, 'Planck'),
-                                   (Av_bayestar, 'Bayestar')]):
-        ax = fig.add_subplot(1,3,k+1)
-        ax.imshow(
-            np.sqrt(Av)[::,::-1],
-            vmin=0.,
-            vmax=2.,
-            origin='lower',
-            interpolation='nearest',
-            cmap='binary',
-            aspect='equal'
-        )
-        ax.axis('off')
-        ax.set_title(title)
-    
-    fig.subplots_adjust(wspace=0., hspace=0.)
-    plt.savefig('comparison.png', dpi=150)
+
+    plt.imshow(
+        prob_selection[::,::-1],
+        vmin=0.,
+        vmax=1.,
+        origin='lower',
+        interpolation='nearest',
+        cmap='viridis',
+        aspect='equal',
+        extent=[-180,180,-90,90]
+    )
+
+    plt.axis('off')
+    plt.savefig('map.png', bbox_inches='tight', dpi=150)
 
 Here's the result:
 
-.. image :: figs/boubert_everall_2019.png
+.. image :: figs/map.png
