@@ -100,7 +100,7 @@ If you make use of this software in a publication, please always cite
 
 You should also cite the papers behind the selection functions you use.
 
-1. cog_ii.dr2_sf - Please cite Completeness of the Gaia-verse [Paper I](https://ui.adsabs.harvard.edu/abs/2020arXiv200414433B/abstract) and Paper II.
+1. cog_ii.dr2_sf - Please cite Completeness of the Gaia-verse [Paper I](https://ui.adsabs.harvard.edu/abs/2020arXiv200414433B/abstract) and [Paper II](https://ui.adsabs.harvard.edu/abs/2020arXiv200508983B/abstract).
 
 Development
 -----------

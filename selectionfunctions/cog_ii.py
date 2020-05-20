@@ -157,8 +157,8 @@ class dr2_sf(SelectionFunction):
 
             _result = np.ones(_a.shape)
             for _m in range(1,5)[::-1]:
-                _result = 1 + _result*((_n-_m+1)/_m)*(_a+_m-1)/(_b+_n-_m)
-            _result = 1- _result*special.beta(_a,_b+_n)/special.beta(_a,_b)
+                _result = 1.0 + _result*((_n-_m+1)/_m)*(_a+_m-1)/(_b+_n-_m)
+            _result = 1.0 - _result*special.beta(_a,_b+_n)/special.beta(_a,_b)
 
         return _result
 
