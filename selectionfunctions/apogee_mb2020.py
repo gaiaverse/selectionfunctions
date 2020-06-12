@@ -71,9 +71,9 @@ class apogee_sf(SelectionFunction):
             self._nside = 128
             self._bounds = bounds
 
-            self._h_grid = f['g_grid'][...]
+            self._h_grid = f['h_grid'][...]
             self._jk_grid = f['jk_grid'][...]
-            self._sf_hpx = f['sf_hpx'][...]
+            self._sf_hpx = f['sf_ratios'][...]
 
             t_auxilliary = time()
 
@@ -96,8 +96,10 @@ class apogee_sf(SelectionFunction):
 
 
         # Get magnitude ids
-        Hid = np.sum(_h>self._h_grid).astype(int) - 1
-        JKid = np.sum(_jk>self._jk_grid).astype(int) - 1
+        Hid = np.zeros(_h.shape).astype(int)-1
+        for ii in range(len(self._h_grid)): Hid += (_h>self._h_grid[ii]).astype(int)
+        JKid = np.zeros(_jk.shape).astype(int)-1
+        for ii in range(len(self._jk_grid)): JKid += (_jk>self._jk_grid[ii]).astype(int)
 
         _result = self._sf_hpx[_hpx, Hid, JKid]
 
