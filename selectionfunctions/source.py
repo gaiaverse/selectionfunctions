@@ -118,14 +118,16 @@ def ensure_tmass_hjk(f):
         has_photometry = hasattr(sources, 'photometry')
         if has_photometry:
             has_tmass_h = 'tmass_h' in sources.photometry.measurement.keys()
-            has_tmass_jk = 'tmass_jk' in sources.photometry.measurement.keys()
+            has_tmass_j = 'tmass_j' in sources.photometry.measurement.keys()
+            has_tmass_k = 'tmass_k' in sources.photometry.measurement.keys()
+            has_tmass_jk = 'tmass_j_tmass_k' in sources.photometry.measurement.keys()
             if has_tmass_h: pass
             else:
                 print('No 2MASS H magnitude passed (tmass_h), but transformation is not yet implemented.')
                 raise ValueError('You need to pass in 2MASS H photometric magnitudes to use this selection function.')
-            if has_tmass_jk: pass
+            if (has_tmass_jk)|(has_tmass_j&has_tmass_k): pass
             else:
-                print('No 2MASS J-K colour passed (tmass_jk), but transformation is not yet implemented.')
+                print('No 2MASS J-K colour passed (either tmass_j_tmass_k or both tmass_j and tmass_k are required), but transformation is not yet implemented.')
                 raise ValueError('You need to pass in 2MASS J-K colour to use this selection function.')
         else:
             raise ValueError('You need to pass in 2MASS H photometric magnitudes and J-K colours to use this selection function.')

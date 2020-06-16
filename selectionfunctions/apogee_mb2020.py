@@ -125,7 +125,13 @@ class apogee_sf(SelectionFunction):
 
         # Extract 2MASS H magnitude and J-K colour
         H = sources.photometry.measurement['tmass_h']
-        JK = sources.photometry.measurement['tmass_jk']
+
+        print(sources.photometry.measurement.keys())
+
+        if 'tmass_j_tmass_k' in sources.photometry.measurement.keys():
+            JK = sources.photometry.measurement['tmass_j_tmass_k']
+        else:
+            JK = sources.photometry.measurement['tmass_j'] - sources.photometry.measurement['tmass_k']
 
         # Evaluate selection function
         selection_function = self._selection_function(hpxidx, H, JK)
