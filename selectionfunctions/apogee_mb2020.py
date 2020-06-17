@@ -118,7 +118,7 @@ class apogee_sf(SelectionFunction):
         xyz_source = np.stack([np.cos(np.deg2rad(_ra))*np.cos(np.deg2rad(_dec)),
                                np.sin(np.deg2rad(_ra))*np.cos(np.deg2rad(_dec)),
                                np.sin(np.deg2rad(_dec))]).T
-        crossmatch = self.tree_field.query_ball_point(xyz_source, np.deg2rad(1.49))
+        crossmatch = self.tree_field.query_ball_point(xyz_source, 2*np.sin(np.deg2rad(1.49)/2))
 
         # Resultant Selection Function is union of overlapping fields (1 - product of non-selection)
         _result = np.array([1 - np.product(1 - self._sf_field[crossmatch[ii],Hid[ii],JKid[ii]]) for ii in range(len(crossmatch))])
