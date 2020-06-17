@@ -45,7 +45,7 @@ class apogee_sf(SelectionFunction):
     Queries the Gaia DR2 selection function (Boubert & Everall, 2019).
     """
 
-    def __init__(self, map_fname=None, multi_radius=True, bounds=True):
+    def __init__(self, map_fname=None, bounds=True):
         """
         Args:
             map_fname (Optional[:obj:`str`]): Filename of the BoubertEverall2019 selection function. Defaults to
@@ -84,19 +84,14 @@ class apogee_sf(SelectionFunction):
 
         t_auxilliary = time()
 
-        self.multi_radius = multi_radius
-
         # Calculate apogee selection function from counts
         self._sf_field = np.where(_tmass_count>_apogee_count, _apogee_count.astype(float)/_tmass_count.astype(float),
                                     np.where(_apogee_count==0, 0., 1.))
 
         # Create KDTree for field centers
-        xyz_field = np.stack([np.cos(np.deg2rad(_ra_field))*np.cos(np.deg2rad(_dec_field)),
+        self.xyz_field = np.stack([np.cos(np.deg2rad(_ra_field))*np.cos(np.deg2rad(_dec_field)),
                                np.sin(np.deg2rad(_ra_field))*np.cos(np.deg2rad(_dec_field)),
                                np.sin(np.deg2rad(_dec_field))]).T
-
-        if self.multi_radius: self.tree_field_radii = [spatial.cKDTree(xyz_field[self._radius_field==rad]) for rad in self._unique_radii]
-        else: self.tree_field = spatial.cKDTree(xyz_field)
 
         if bounds == True:
             self._h_min = self._h_grid[0]; self._h_max = self._h_grid[-1];
@@ -125,17 +120,16 @@ class apogee_sf(SelectionFunction):
         xyz_source = np.stack([np.cos(np.deg2rad(_ra))*np.cos(np.deg2rad(_dec)),
                                np.sin(np.deg2rad(_ra))*np.cos(np.deg2rad(_dec)),
                                np.sin(np.deg2rad(_dec))]).T
+        tree_source = spatial.cKDTree(xyz_source)
 
         # Resultant Selection Function is union of overlapping fields (1 - product of non-selection)
-        if self.multi_radius:
-            _result = np.ones(len(_ra))
-            for ii in range(len(self._unique_radii)):
-                crossmatch = self.tree_field_radii[ii].query_ball_point(xyz_source, 2*np.sin(np.deg2rad(self._unique_radii[ii])/2))
-                _result *= np.array([np.product(1 - self._sf_field[crossmatch[ii],Hid[ii],JKid[ii]]) for ii in range(len(crossmatch))])
-            _result = 1-_result
-        else:
-            crossmatch = self.tree_field.query_ball_point(xyz_source, 2*np.sin(np.deg2rad(self._radius_field)/2))
-            _result = 1 - np.array([np.product(1 - self._sf_field[crossmatch[ii],Hid[ii],JKid[ii]]) for ii in range(len(crossmatch))])
+        _result = np.ones(len(_ra))
+        for radius in self._unique_radii:
+            crossmatch=tree_source.query_ball_point(self.xyz_field[self._radius_field==radius], 2*np.sin(np.deg2rad(radius)/2))
+            for ii in range(len(crossmatch)):
+                _result[crossmatch[ii]] *= 1 - self._sf_field[ii,Hid[crossmatch[ii]],
+                                                                 JKid[crossmatch[ii]]]
+        _result = 1-_result
 
         return _result
 
