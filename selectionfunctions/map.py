@@ -266,13 +266,26 @@ def ensure_flat_icrs(f):
     return _wrapper_func
 
 def gal_to_shape(gal, shape):
-    l = np.reshape(gal.l.deg, shape)*units.deg
-    b = np.reshape(gal.b.deg, shape)*units.deg
+    l = np.reshape(gal.coord.l.deg, shape)*units.deg
+    b = np.reshape(gal.coord.b.deg, shape)*units.deg
 
-    has_dist = hasattr(gal.distance, 'kpc')
-    d = np.reshape(gal.distance.kpc, shape)*units.kpc if has_dist else None
+    has_dist = hasattr(gal.coord.distance, 'kpc')
+    d = np.reshape(gal.coord.distance.kpc, shape)*units.kpc if has_dist else None
 
-    return coordinates.SkyCoord(l, b, distance=d, frame='galactic')
+    has_photometry = gal.photometry is not None
+    if has_photometry:
+        photometry = {k:np.reshape(v, shape) for k,v in gal.photometry.measurement.items()}
+
+        has_photometry_error = gal.photometry.error is not None
+        if has_photometry_error:
+            photometry_error = {k:np.reshape(v, shape) for k,v in gal.photometry.error.items()}
+        else:
+            photometry_error = None
+    else:
+        photometry = None
+        photometry_error = None
+
+    return Source(l,  b, distance=d, photometry=photometry, photometry_error=photometry_error, frame='galactic')
 
 def ensure_flat_galactic(f):
     """
@@ -301,19 +314,18 @@ def ensure_flat_galactic(f):
     """
 
     @wraps(f)
-    def _wrapper_func(self, coords, **kwargs):
+    def _wrapper_func(self, sources, **kwargs):
         # t0 = time.time()
 
-        if coords.frame.name != 'galactic':
-            gal = coords.transform_to('galactic')
-        else:
-            gal = coords
+        gal = copy.copy(sources)
+        if gal.coord.frame.name != 'galactic':
+            gal.coord = gal.coord.transform_to('galactic')
 
         # t1 = time.time()
 
-        is_array = not coords.isscalar
+        is_array = not gal.coord.isscalar
         if is_array:
-            orig_shape = coords.shape
+            orig_shape = sources.coord.shape
             shape_flat = (np.prod(orig_shape),)
             # print 'Original shape: {}'.format(orig_shape)
             # print 'Flattened shape: {}'.format(shape_flat)
