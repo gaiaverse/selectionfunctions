@@ -67,36 +67,65 @@ class apogee_sf(SelectionFunction):
         with h5py.File(map_fname, 'r') as f:
             # Load auxilliary data
             print('Loading auxilliary data ...')
-            self._nside = 128
-            self._bounds = bounds
 
-            self._h_grid = f['h_bins'][...]
-            self._jk_grid = f['jk_bins'][...]
+            _frac4complete = f['_frac4complete'][...]
+            minnspec = f['_minnspec'][...]
 
-            _apogee_count = f['apogee'][...].astype(float)
-            _tmass_count = f['tmass'][...].astype(float)
+            self._locations = f['_locations'][...]
+
+            self._short_completion = f['_short_completion'][...]
+            self._short_completion[np.isnan(self._short_completion)] = 0.
+            self._medium_completion = f['_medium_completion'][...]
+            self._medium_completion[np.isnan(self._medium_completion)] = 0.
+            self._long_completion = f['_long_completion'][...]
+            self._long_completion[np.isnan(self._long_completion)] = 0.
+
+            self._nspec_short = f['_nspec_short'][...]
+            self._nspec_medium = f['_nspec_medium'][...]
+            self._nspec_long = f['_nspec_long'][...]
+            self._nphot_short = f['_nphot_short'][...]
+            self._nphot_medium = f['_nphot_medium'][...]
+            self._nphot_long = f['_nphot_long'][...]
 
             _ra_field = f['racen'][...]
             _dec_field = f['deccen'][...]
-            self._radius_field = f['radius'][...]
-            self._unique_radii = np.unique(f['radius'][...])
-            print(self._unique_radii)
+            self._radius_field = f['radius'][:,0]
+            self._unique_radii = np.unique(self._radius_field)
+
+            self._h_bin = np.zeros((len(f['locations']), 4))
+            self._h_bin[:,0] = f['_short_hmin']
+            self._h_bin[:,1] = f['_short_hmax']
+            self._h_bin[:,2] = f['_medium_hmax']
+            self._h_bin[:,3] = f['_long_hmax']
+            self._h_bin[np.isnan(self._h_bin)] = np.inf
+
+            self._jk_bin = np.zeros((len(f['locations']), 6))
+            self._jk_bin[:,:5] = f['_color_bins_jkmin']
+            self._jk_bin[:,5] = np.inf
+
 
         t_auxilliary = time()
 
-        # Calculate apogee selection function from counts
-        self._sf_field = np.where(_tmass_count>_apogee_count, _apogee_count.astype(float)/_tmass_count.astype(float),
-                                    np.where(_apogee_count==0, 0., 1.))
+        # Selection function: Nfield x Nhbin x Njkbin
+        self._sf_field = np.zeros((len(self._locations), 3, 5))
+        for jj in range(5):
+            self._sf_field[:,0,jj] = np.where((np.nanmax(self._short_completion, axis=1) >= _frac4complete)\
+                                    & (np.nansum(self._nspec_short, axis=1) >= minnspec),
+                                        self._nspec_short[:,jj]/self._nphot_short[:,jj], np.nan)
+            self._sf_field[:,1,jj] = np.where((np.nanmax(self._medium_completion, axis=1) >= _frac4complete)\
+                                    & (np.nansum(self._nspec_medium, axis=1) >= minnspec),
+                                        self._nspec_medium[:,jj]/self._nphot_medium[:,jj], np.nan)
+            self._sf_field[:,2,jj] = np.where((np.nanmax(self._long_completion, axis=1) >= _frac4complete)\
+                                    & (np.nansum(self._nspec_long, axis=1) >= minnspec),
+                                        self._nspec_long[:,jj]/self._nphot_long[:,jj], np.nan)
 
         # Create KDTree for field centers
         self.xyz_field = np.stack([np.cos(np.deg2rad(_ra_field))*np.cos(np.deg2rad(_dec_field)),
                                np.sin(np.deg2rad(_ra_field))*np.cos(np.deg2rad(_dec_field)),
                                np.sin(np.deg2rad(_dec_field))]).T
 
+        self._bounds = bounds
         if bounds == True:
-            self._h_min = self._h_grid[0]; self._h_max = self._h_grid[-1];
-            self._jk_min = self._jk_grid[0]; self._jk_max = self._jk_grid[-1];
-        else:
             self._h_min = -np.inf; self._h_max = np.inf;
             self._jk_min = -np.inf; self._jk_max = np.inf;
 
@@ -110,13 +139,7 @@ class apogee_sf(SelectionFunction):
 
     def _selection_function(self,_ra, _dec, _h, _jk):
 
-
-        # Get magnitude ids
-        Hid = np.zeros(_h.shape).astype(int)-1
-        for ii in range(len(self._h_grid)): Hid += (_h>self._h_grid[ii]).astype(int)
-        JKid = np.zeros(_jk.shape).astype(int)-1
-        for ii in range(len(self._jk_grid)): JKid += (_jk>self._jk_grid[ii]).astype(int)
-
+        # Build KDTree
         xyz_source = np.stack([np.cos(np.deg2rad(_ra))*np.cos(np.deg2rad(_dec)),
                                np.sin(np.deg2rad(_ra))*np.cos(np.deg2rad(_dec)),
                                np.sin(np.deg2rad(_dec))]).T
@@ -125,14 +148,28 @@ class apogee_sf(SelectionFunction):
         # Resultant Selection Function is union of overlapping fields (1 - product of non-selection)
         _result = np.ones(len(_ra))
         for radius in self._unique_radii:
+            # location_ids with this radius
+            loc_ids=np.argwhere(self._radius_field==radius)
+            # Map fields to sources
             crossmatch=tree_source.query_ball_point(self.xyz_field[self._radius_field==radius], 2*np.sin(np.deg2rad(radius)/2))
             for ii in range(len(crossmatch)):
-                _result[crossmatch[ii]] *= 1 - self._sf_field[ii,Hid[crossmatch[ii]],
-                                                                 JKid[crossmatch[ii]]]
+
+                # ID of H bin
+                Hid = np.zeros(len(crossmatch[ii])).astype(int)-1
+                for jj in range(self._h_bin.shape[1]): Hid += (_h[crossmatch[ii]]>self._h_bin[loc_ids[ii],jj]).astype(int)
+                # ID of JK bin
+                JKid = np.zeros(len(crossmatch[ii])).astype(int)-1
+                for jj in range(self._jk_bin.shape[1]): JKid += (_jk[crossmatch[ii]]>self._jk_bin[loc_ids[ii],jj]).astype(int)
+
+                # Prod(P(not selected))
+                _result[crossmatch[ii]] *= 1 - self._sf_field[loc_ids[ii],Hid,JKid]
+
+        # Union is 1-probability of not being selected on any field.
         _result = 1-_result
 
-        return _result
+        _result[np.isnan(_result)] = 0.
 
+        return _result
 
     @ensure_flat_icrs
     @ensure_tmass_hjk
