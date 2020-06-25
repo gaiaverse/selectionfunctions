@@ -199,8 +199,7 @@ class apogee_sf(SelectionFunction):
 
         # Extract 2MASS H magnitude and J-K colour
         H = sources.photometry.measurement['tmass_h']
-
-        print(sources.photometry.measurement.keys())
+        #print(sources.photometry.measurement.keys())
 
         if 'tmass_j_tmass_k' in sources.photometry.measurement.keys():
             JK = sources.photometry.measurement['tmass_j_tmass_k']
@@ -277,6 +276,63 @@ class apogeeCombinedSelect(SelectionFunction):
 
         return selection_function
 
+class apogee2CombinedSelect(SelectionFunction):
+
+    def __init__(self):
+        """
+        Args:
+            map_fname (Optional[:obj:`str`]): Filename of the BoubertEverall2019 selection function. Defaults to
+                :obj:`None`, meaning that the default location is used.
+            version (Optional[:obj:`str`]): The selection function version to download. Valid versions
+                are :obj:`'modelT'` and :obj:`'modelAB'`
+                Defaults to :obj:`'modelT'`.
+            crowding (Optional[:obj:`bool`]): Whether or not the selection function includes crowding.
+                Defaults to :obj:`'False'`.
+            bounds (Optional[:obj:`bool`]): Whether or not the selection function is bounded to 0.0 < G < 25.0.
+                Defaults to :obj:`'True'`.
+        """
+
+        t_start = time()
+
+        self.sf_inst = [apogee_sf(apogee=2, hemisphere='south'),
+                        apogee_sf(apogee=2, hemisphere='north')]
+
+        t_sf = time()
+        t_finish = time()
+
+        print('t = {:.3f} s'.format(t_finish - t_start))
+        print('          sf: {: >7.3f} s'.format(t_sf-t_start))
+
+    def _selection_function(self,sources, sources_shape):
+
+
+        _not_result=np.ones(sources_shape)
+
+        for ii in range(len(self.sf_inst)):
+            _not_result *= (1-self.sf_inst[ii](sources))
+
+        _result = 1-_not_result
+
+        return _result
+
+
+    @ensure_flat_icrs
+    def query(self, sources):
+        """
+        Returns the selection function at the requested coordinates.
+        Args:
+            coords (:obj:`astropy.coordinates.SkyCoord`): The coordinates to query.
+        Returns:
+            Selection function at the specified coordinates, as a fraction.
+        """
+
+        # Extract sources array shape (if float, get's converted to 1D array)
+        sources_shape = np.array(next(iter(sources.photometry.measurement.values()))).shape
+
+        # Evaluate selection function
+        selection_function = self._selection_function(sources, sources_shape)
+
+        return selection_function
 
 def fetch():
     """
