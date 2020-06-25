@@ -45,7 +45,7 @@ class apogee_sf(SelectionFunction):
     Queries the Gaia DR2 selection function (Boubert & Everall, 2019).
     """
 
-    def __init__(self, map_fname=None, bounds=True):
+    def __init__(self, map_fname=None, bounds=True, apogee=1, hemisphere='north'):
         """
         Args:
             map_fname (Optional[:obj:`str`]): Filename of the BoubertEverall2019 selection function. Defaults to
@@ -60,8 +60,14 @@ class apogee_sf(SelectionFunction):
         """
 
         if map_fname is None:
-            map_fname = os.path.join(data_dir(), 'apogee', 'mackerethbovy_2020.h5')
-
+            if apogee==2:
+                if hemisphere.lower()=='north': map_fname = os.path.join(data_dir(), 'apogee', 'mackerethbovy_2020_apo2north.h')
+                elif hemisphere.lower()=='south': map_fname = os.path.join(data_dir(), 'apogee', 'mackerethbovy_2020_apo2south.h')
+                else: raise ValueError('For apogee 2, hemisphere must be "north" or "south"')
+            elif apogee==1:
+                if hemisphere.lower()=='south': print('apogee 1 is only in northern hemisphere. If you want apogee 2, include apogee=2 in kwargs.')
+                map_fname = os.path.join(data_dir(), 'apogee', 'mackerethbovy_2020_apo1.h')
+            else: raise ValueError('apogee kwarg must be 1 or 2.')
         t_start = time()
 
         with h5py.File(map_fname, 'r') as f:
@@ -71,38 +77,39 @@ class apogee_sf(SelectionFunction):
             _frac4complete = f['_frac4complete'][...]
             minnspec = f['_minnspec'][...]
 
-            self._locations = f['_locations'][...]
+            _empty_field = np.isnan(f['radius'][:,0])
 
-            self._short_completion = f['_short_completion'][...]
+            self._locations = f['_locations'][...][~_empty_field]
+
+            self._short_completion = f['_short_completion'][...][~_empty_field]
             self._short_completion[np.isnan(self._short_completion)] = 0.
-            self._medium_completion = f['_medium_completion'][...]
+            self._medium_completion = f['_medium_completion'][...][~_empty_field]
             self._medium_completion[np.isnan(self._medium_completion)] = 0.
-            self._long_completion = f['_long_completion'][...]
+            self._long_completion = f['_long_completion'][...][~_empty_field]
             self._long_completion[np.isnan(self._long_completion)] = 0.
 
-            self._nspec_short = f['_nspec_short'][...]
-            self._nspec_medium = f['_nspec_medium'][...]
-            self._nspec_long = f['_nspec_long'][...]
-            self._nphot_short = f['_nphot_short'][...]
-            self._nphot_medium = f['_nphot_medium'][...]
-            self._nphot_long = f['_nphot_long'][...]
+            self._nspec_short = f['_nspec_short'][...][~_empty_field]
+            self._nspec_medium = f['_nspec_medium'][...][~_empty_field]
+            self._nspec_long = f['_nspec_long'][...][~_empty_field]
+            self._nphot_short = f['_nphot_short'][...][~_empty_field]
+            self._nphot_medium = f['_nphot_medium'][...][~_empty_field]
+            self._nphot_long = f['_nphot_long'][...][~_empty_field]
 
-            _ra_field = f['racen'][...]
-            _dec_field = f['deccen'][...]
-            self._radius_field = f['radius'][:,0]
+            _ra_field = f['racen'][...][~_empty_field]
+            _dec_field = f['deccen'][...][~_empty_field]
+            self._radius_field = f['radius'][:,0][~_empty_field]
             self._unique_radii = np.unique(self._radius_field)
 
-            self._h_bin = np.zeros((len(f['locations']), 4))
-            self._h_bin[:,0] = f['_short_hmin']
-            self._h_bin[:,1] = f['_short_hmax']
-            self._h_bin[:,2] = f['_medium_hmax']
-            self._h_bin[:,3] = f['_long_hmax']
+            self._h_bin = np.zeros((len(self._locations), 4))
+            self._h_bin[:,0] = f['_short_hmin'][~_empty_field]
+            self._h_bin[:,1] = f['_short_hmax'][~_empty_field]
+            self._h_bin[:,2] = f['_medium_hmax'][~_empty_field]
+            self._h_bin[:,3] = f['_long_hmax'][~_empty_field]
             self._h_bin[np.isnan(self._h_bin)] = np.inf
 
-            self._jk_bin = np.zeros((len(f['locations']), 6))
-            self._jk_bin[:,:5] = f['_color_bins_jkmin']
+            self._jk_bin = np.zeros((len(self._locations), 6))
+            self._jk_bin[:,:5] = f['_color_bins_jkmin'][...][~_empty_field]
             self._jk_bin[:,5] = np.inf
-
 
         t_auxilliary = time()
 
@@ -162,12 +169,14 @@ class apogee_sf(SelectionFunction):
                 for jj in range(self._jk_bin.shape[1]): JKid += (_jk[crossmatch[ii]]>self._jk_bin[loc_ids[ii],jj]).astype(int)
 
                 # Prod(P(not selected))
-                _result[crossmatch[ii]] *= 1 - self._sf_field[loc_ids[ii],Hid,JKid]
+                # Replace nan values with 0.
+                _result[crossmatch[ii]] *= np.where(np.isnan(self._sf_field[loc_ids[ii],Hid,JKid]), \
+                                                    1, 1 - self._sf_field[loc_ids[ii],Hid,JKid])
 
         # Union is 1-probability of not being selected on any field.
         _result = 1-_result
 
-        _result[np.isnan(_result)] = 0.
+        #_result[np.isnan(_result)] = 0.
 
         return _result
 
@@ -232,12 +241,13 @@ def fetch():
 
     doi = '10.7910/DVN/PDFOVC'
 
-    requirements = {'filename': 'mackerethbovy_2020.h5'}
+    for version in ["apogee2north", "apogee2south", "apogee1"]:
+        requirements = {'filename': 'mackerethbovy_2020_%s.h5' % version}
 
-    local_fname = os.path.join(data_dir(), 'apogee', 'mackerethbovy_2020.h5')
+        local_fname = os.path.join(data_dir(), 'apogee', 'mackerethbovy_2020_%s.h5' % version)
 
-    # Download the data
-    fetch_utils.dataverse_download_doi(
-        doi,
-        local_fname,
-        file_requirements=requirements)
+        # Download the data
+        fetch_utils.dataverse_download_doi(
+            doi,
+            local_fname,
+            file_requirements=requirements)
