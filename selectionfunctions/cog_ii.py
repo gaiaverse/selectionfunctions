@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # cog_ii.py
-# Reads the Gaia DR2 selection function from Completeness 
+# Reads the Gaia DR2 selection function from Completeness
 # of the Gaia-verse Paper II, Boubert & Everall (2020).
 #
 # Copyright (C) 2020  Douglas Boubert & Andrew Everall
@@ -64,7 +64,7 @@ class dr2_sf(SelectionFunction):
             map_fname = os.path.join(data_dir(), 'cog_ii', 'cog_ii_dr2.h5')
 
         t_start = time()
-        
+
         with h5py.File(map_fname, 'r') as f:
             # Load auxilliary data
             print('Loading auxilliary data ...')
@@ -77,7 +77,7 @@ class dr2_sf(SelectionFunction):
                 self._nside_crowding = 1024
                 self._log10_rho_grid = f['log10_rho_grid'][...]
                 self._log10_rho_field = np.log10(np.maximum(1.0,f['neighbour_field'][...])/hp.nside2pixarea(self._nside_crowding,degrees=True))
-            
+
             t_auxilliary = time()
 
             # Load selection function
@@ -94,7 +94,7 @@ class dr2_sf(SelectionFunction):
                 else:
                     self._alpha = f['ab_alpha_percentiles'][0,:,2]
                     self._beta = f['ab_beta_percentiles'][0,:,2]
-            
+
             if bounds == True:
                 self._g_min = 0.0
                 self._g_max = 25.0
@@ -124,9 +124,9 @@ class dr2_sf(SelectionFunction):
                 self._interpolator = lambda _g : (self._alpha_interpolator(_g),self._beta_interpolator(_g))
 
         t_interpolator = time()
-        
+
         t_finish = time()
-        
+
         print('t = {:.3f} s'.format(t_finish - t_start))
         print('  auxilliary: {: >7.3f} s'.format(t_auxilliary-t_start))
         print('          sf: {: >7.3f} s'.format(t_sf-t_auxilliary))
