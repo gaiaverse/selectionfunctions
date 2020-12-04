@@ -1,7 +1,7 @@
 *.pyc
 *.egg-info*
 *.png
-*.ipynb
+testing*.ipynb
 *.dat
 *.bak
 *.ipynb_checkpoints
