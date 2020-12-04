@@ -363,14 +363,20 @@ def dataverse_search_doi(doi):
     return json.loads(r.text)
 
 
-def dataverse_download_id(file_id, md5sum, **kwargs):
-    url = '{}/api/access/datafile/{}'.format(dataverse, file_id)
-    download_and_verify(url, md5sum, **kwargs)
+def dataverse_download_id(file_id, md5sum, original, **kwargs):
+    if original == True:
+        url = '{}/api/access/datafile/{}?format=original'.format(dataverse, file_id)
+        download_and_verify(url, md5sum, **kwargs)
+    else:
+        url = '{}/api/access/datafile/{}'.format(dataverse, file_id)
+        download_and_verify(url, md5sum, **kwargs)
+    
 
 
 def dataverse_download_doi(doi,
                            local_fname=None,
                            file_requirements={},
+                           original=False,
                            clobber=False):
     """
     Downloads a file from the Dataverse, using a DOI and set of metadata
@@ -385,6 +391,8 @@ def dataverse_download_doi(doi,
             given metadata entries. If multiple files meet these requirements,
             only the first in downloaded. Defaults to `{}`, corresponding to no
             requirements.
+        original (Optional[bool]): Should the original version of the file be downloaded?
+            Only applicable for tabular data. Defaults to `False`.
 
     Raises:
         DownloadError: Either no matching file was found under the given DOI, or
@@ -419,7 +427,7 @@ def dataverse_download_doi(doi,
 
             print("Downloading data to '{}' ...".format(local_fname))
 
-            dataverse_download_id(file_id, md5sum,
+            dataverse_download_id(file_id, md5sum, original=original,
                                   fname=local_fname, clobber=False)
 
             return
