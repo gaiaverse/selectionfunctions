@@ -68,9 +68,9 @@ class dr2_sf(SelectionFunction):
         with h5py.File(map_fname, 'r') as f:
             # Load auxilliary data
             print('Loading auxilliary data ...')
-            self._nside = 4096
             self._g_grid = f['g_grid'][...]
             self._n_field = f['n_field'][...]
+            self._nside = hp.npix2nside(self._n_field.shape[0])
             self._crowding = crowding
             self._bounds = bounds
             if crowding == True:
@@ -212,6 +212,21 @@ class dr2_sf(SelectionFunction):
         return selection_function
 
 
+class dr3_sf(dr2_sf):
+    def __init__(self, map_fname_dr3=None,map_fname_dr2=None, version='modelAB', crowding=False, bounds=True):
+
+        if map_fname_dr3 is None:
+            map_fname_dr3 = os.path.join(data_dir(), 'cog_ii', 'n_field_dr3.h5')
+
+        dr2_sf.__init__(self, map_fname_dr2, version, crowding, bounds)
+
+        with h5py.File(map_fname_dr3, 'r') as f:
+            # Load auxilliary data
+            print('Loading auxilliary data ...')
+            self._n_field = f['n_field'][...]
+            self._nside = hp.npix2nside(self._n_field.shape[0])
+
+
 def fetch():
     """
     Downloads the specified version of the Bayestar dust map.
@@ -233,14 +248,22 @@ def fetch():
             was a problem connecting to the Dataverse.
     """
 
-    doi = '10.7910/DVN/PDFOVC'
+    doi = {'dr2': '10.7910/DVN/PDFOVC',
+           'edr3_nfield': '10.7910/DVN/I3TGTS'}
 
-    requirements = {'filename': 'cog_ii_dr2.h5'}
+    requirements = {'dr2': {'filename': 'cog_ii_dr2.h5'},
+                    'edr3_nfield':{'filename': 'n_field_dr3.h5'}}
 
-    local_fname = os.path.join(data_dir(), 'cog_ii', 'cog_ii_dr2.h5')
-
+    local_fname = os.path.join(data_dir(), 'cog_ii', requirements['dr2']['filename'])
     # Download the data
     fetch_utils.dataverse_download_doi(
-        doi,
+        doi['dr2'],
         local_fname,
-        file_requirements=requirements)
+        file_requirements=requirements['dr2'])
+
+    local_fname = os.path.join(data_dir(), 'cog_ii', requirements['edr3_nfield']['filename'])
+    # Download the data
+    fetch_utils.dataverse_download_doi(
+        doi['edr3_nfield'],
+        local_fname,
+        file_requirements=requirements['edr3_nfield'])
