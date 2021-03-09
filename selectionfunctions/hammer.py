@@ -40,6 +40,7 @@ from .source import ensure_gaia_g
 from . import fetch_utils
 
 from time import time
+from numba import njit
 
 
 class hammer(SelectionFunction):
@@ -48,7 +49,8 @@ class hammer(SelectionFunction):
     """
 
     def __init__(self, map_fname=None, bounds=True,
-                       nside=128, lmax=100, M=17, C=1,spherical_harmonics_directory='./SphericalHarmonics'):
+                       nside=128, lmax=100, M=17, C=1, lengthscale=0.3,
+                       spherical_harmonics_directory='./SphericalHarmonics'):
         """
         Args:
             map_fname (Optional[:obj:`str`]): Filename of the BoubertEverall2019 selection function. Defaults to
@@ -71,6 +73,7 @@ class hammer(SelectionFunction):
         self.C=C
         self.lmax=lmax
         self._bounds = bounds
+        self.lengthscale = lengthscale
 
         self.L, self.H, self.R = 2 * self.lmax + 1, (self.lmax + 1) ** 2, 4 * self.nside - 1
 
@@ -95,6 +98,14 @@ class hammer(SelectionFunction):
         # Load spherical harmonics
         self.spherical_harmonics_directory=spherical_harmonics_directory
         self._load_spherical_harmonics()
+
+        # Initialise covariance kernel
+        Mbins = np.linspace(self.Mlim[0],self.Mlim[1], M+1)
+        self.Mcenters = (Mbins[1:]+Mbins[:-1])/2
+        self._inv_KMM = np.linalg.inv(self.covariance_kernel(self.Mcenters, self.Mcenters, lengthscale=lengthscale) + 1e-15*np.eye(M))
+        Cbins = np.linspace(self.Clim[0],self.Clim[1], C+1)
+        self.Ccenters = (Cbins[1:]+Cbins[:-1])/2
+        self._inv_KCC = np.linalg.inv(self.covariance_kernel(self.Ccenters, self.Ccenters, lengthscale=lengthscale) + 1e-15*np.eye(C))
 
         t_interpolator = time()
 
@@ -127,8 +138,11 @@ class hammer(SelectionFunction):
         try: color = sources.photometry.measurement['gaia_bp_gaia_rp']
         except KeyError: color = np.zeros(len(mag))
 
+        # Switch positions to ring ordering
+        pix = hp.nest2ring(self.nside, hpxidx)
+
         # Evaluate selection function
-        selection_function = self._selection_function_highres(mag, color, hpxidx, chunksize=chunksize)
+        selection_function = self._selection_function(mag, color, pix, chunksize=chunksize)
 
         if self._bounds == True:
             _outside_bounds = np.where( (mag<self._g_min) | (mag>self._g_max) )
@@ -136,7 +150,18 @@ class hammer(SelectionFunction):
 
         return selection_function
 
-    def _selection_function(self, mag, color, hpx):
+    def _get_alm(self, mag, color):
+
+        # Contstruct covariance kernel for new positions.
+        KmM = self.covariance_kernel(mag, self.Mcenters, lengthscale=self.lengthscale)
+        KcC = self.covariance_kernel(color, self.Ccenters, lengthscale=self.lengthscale)
+
+        # Estimate alm using Gaussian Process
+        _alm = np.sum ( ((KmM @ self._inv_KMM) @ self.alm) * (KcC @ self._inv_KCC)[None, :,:] , axis=2)
+
+        return _alm
+
+    def _selection_function_pixel(self, mag, color, hpx):
 
         # Get mag and color IDs
         M_idx = ( self.M*(mag  -self.Mlim[0])/(self.Mlim[1]-self.Mlim[0]) ).astype(int)
@@ -150,38 +175,48 @@ class hammer(SelectionFunction):
 
         return p
 
-    def _selection_function_highres(self, mag, color, hpx, chunksize=1000):
-
-        # Get mag and color IDs
-        M_idx = ( self.M*(mag  -self.Mlim[0])/(self.Mlim[1]-self.Mlim[0]) ).astype(int)
-        C_idx = ( self.C*(color-self.Clim[0])/(self.Clim[1]-self.Clim[0]) ).astype(int)
+    def _selection_function(self, mag, color, pix, chunksize=1000):
 
         # Batch up iterations:
         x = np.zeros(mag.shape)
 
         for ii in tqdm.tqdm_notebook(range(x.shape[0]//chunksize + 1)):
 
-            # Load logit probability in pixels
-            alm = self.alm[:, M_idx[ii*chunksize:(ii+1)*chunksize], C_idx[ii*chunksize:(ii+1)*chunksize]].T
+            # Contstruct covariance kernel for new positions.
+            KmM = self.covariance_kernel(mag[ii*chunksize:(ii+1)*chunksize], self.Mcenters, lengthscale=self.lengthscale)
+            KcC = self.covariance_kernel(color[ii*chunksize:(ii+1)*chunksize], self.Ccenters, lengthscale=self.lengthscale)
 
-            # Switch positions to ring ordering
-            p = hp.nest2ring(self.nside, hpx[ii*chunksize:(ii+1)*chunksize])
+            # Estimate alm using Gaussian Process
+            _alm_m = np.sum ( ((KmM @ self._inv_KMM) @ self.alm) * (KcC @ self._inv_KCC)[None, :,:] , axis=2).T
 
             # Compute F
-            F = np.zeros((p.shape[0], self.L))
+            pix_chunk = pix[ii*chunksize:(ii+1)*chunksize]
+            F = np.zeros((pix_chunk.shape[0], self.L))
             for l in range(self.L):
-                F[:,l] = np.sum( self._lambda[self._pixel_to_ring[p],self._lower[l]:self._upper[l]+1] * alm[:,self._lower[l]:self._upper[l]+1], axis=1)
+                F[:,l] = np.sum( self._lambda[self._pixel_to_ring[pix_chunk],self._lower[l]:self._upper[l]+1] * _alm_m[:,self._lower[l]:self._upper[l]+1], axis=1)
 
             # Compute x
-            x[ii*chunksize:(ii+1)*chunksize] = np.sum(F * self._azimuth[:,p].T, axis=1);
+            x[ii*chunksize:(ii+1)*chunksize] = np.sum(F * self._azimuth[:,pix_chunk].T, axis=1);
 
         # Take expit
         p = self.expit(x)
 
         return p
 
+    def covariance_kernel(self, x1, x2, lengthscale=None):
+
+        # Initialise covariance kernel
+        C = np.exp(-np.square(x1[:,None]-x2[None,:])/(2.0*lengthscale*lengthscale))
+
+        return C
+
+
     def expit(self, x):
         return 1/(1+np.exp(-x))
+
+
+    def logit(self, p):
+        return np.log(p/(1-p))
 
     def _load_spherical_harmonics(self):
         """ Loads in the spherical harmonics file corresponding to nside and lmax. If they don't exist, then generate them. """
@@ -272,6 +307,22 @@ class hammer(SelectionFunction):
             f.create_dataset('pixel_to_ring',   data = jpix,    shape = (Npix,),   dtype = np.uint32, scaleoffset=0, **save_kwargs)
             f.create_dataset('lower',   data = lower,    shape = (2*lmax+1,),   dtype = np.uint32, scaleoffset=0, **save_kwargs)
             f.create_dataset('upper',   data = upper,    shape = (2*lmax+1,),   dtype = np.uint32, scaleoffset=0, **save_kwargs)
+
+
+#@njit
+def _fast_selection_function(F, L, N, pix, _ring, alm, KmM, KcC, _inv_KMM, _inv_KCC, _lambda, _azimuth, _lower, _upper):
+    # This isn't used because it's not giving a speed boost. Need to work out how to evaluate the selection probability faster!!!
+    for l in range(L):
+        # Estimate alm using Gaussian Process
+        for i, j in enumerate(range(_lower[l],_upper[l]+1)):
+            _alm_m = np.sum ( ((KmM @ _inv_KMM) @ alm[i]) * (KcC @ _inv_KCC) , axis=1)
+
+            F[:,l] += _lambda[_ring,j] * _alm_m
+
+    # Compute x
+    x = np.sum(F * _azimuth[:,pix].T, axis=1);
+
+    return x
 
 def fetch():
     """
