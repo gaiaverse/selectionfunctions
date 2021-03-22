@@ -93,6 +93,7 @@ class chisel(SelectionFunction):
             self.b = f['b'][...]
             self.Mlim = f['Mlim'][...]
             self.Clim = f['Clim'][...]
+        self.H = self.b.shape[0]
         t_auxilliary = time()
 
         if bounds == True:
@@ -155,7 +156,7 @@ class chisel(SelectionFunction):
         pix = hp.nest2ring(self.nside, hpxidx)
 
         # Evaluate selection function
-        selection_function = self._selection_function(mag, color, pix, chunksize=chunksize)
+        selection_function = self._selection_function(mag, color, pix)
 
         if self._bounds == True:
             _outside_bounds = np.where( (mag<self._g_min) | (mag>self._g_max) )
@@ -177,7 +178,7 @@ class chisel(SelectionFunction):
 
         return p
 
-    def _selection_function(self, mag, color, pix, chunksize=1000):
+    def _selection_function_bulky(self, mag, color, pix, chunksize=1000):
 
         # Batch up iterations:
         x = np.zeros(mag.shape)
@@ -189,6 +190,8 @@ class chisel(SelectionFunction):
             else: nmodes += 12*(2**j)**2
         npix = self.nside_to_npix(self.nside)
 
+        Y = sparse.csr_matrix((self.basis['wavelet_w'],self.basis['wavelet_v'],self.basis['wavelet_u']), shape=(npix, nmodes)).toarray()
+        #print(Y.shape)
         Y = sparse.csr_matrix((self.basis['wavelet_w'],self.basis['wavelet_v'],self.basis['wavelet_u']), shape=(npix, nmodes)).toarray()[pix]
 
         for ii in tqdm.tqdm_notebook(range(x.shape[0]//chunksize + 1)):
@@ -197,12 +200,48 @@ class chisel(SelectionFunction):
             KmM = self.covariance_kernel(mag[ii*chunksize:(ii+1)*chunksize], self.Mcenters, lengthscale=self.lengthscale)
             KcC = self.covariance_kernel(color[ii*chunksize:(ii+1)*chunksize], self.Ccenters, lengthscale=self.lengthscale)
 
+            #print(KmM.shape, self._inv_KMM.shape, self.b.shape, KcC.shape, self._inv_KCC.shape)
+
             # Estimate alm using Gaussian Process
             _b_m = np.sum ( ((KmM @ self._inv_KMM) @ self.b) * (KcC @ self._inv_KCC)[None, :,:] , axis=2).T
+
+            #print(_b_m.shape, Y.shape)
 
             #x[ii*chunksize:(ii+1)*chunksize] = Y.dot(_b_m.T)
             x[ii*chunksize:(ii+1)*chunksize] = np.sum(Y[ii*chunksize:(ii+1)*chunksize] * _b_m, axis=1)
             # x[m,c] = csr_matrix_times_vector(P, S, wavelet_w, wavelet_v, wavelet_u, _b_m);
+
+        # Take expit
+        p = self.expit(x)
+
+        return p
+
+    def _selection_function(self, mag, color, pix):
+
+        # Load in sparse matrix
+        nmodes = 0
+        for j in self.j:
+            if j==-1: nmodes += 1
+            else: nmodes += 12*(2**j)**2
+        npix = self.nside_to_npix(self.nside)
+        n = len(mag)
+        x = np.zeros(n)
+
+        @njit
+        def matrix_multiply(x, b, KM, KC, n, H, M, C, wavelet_w, wavelet_v, wavelet_u, pix):
+
+            # Iterate over pixels
+            for i, ipix in enumerate(pix):
+                # Iterate over modes which are not sparsified in Y
+                for iY, iH in enumerate(wavelet_v[wavelet_u[ipix]:wavelet_u[ipix+1]]):
+                    x[i] += np.dot(np.dot(KM[i], b[iH]), KC[i]) * wavelet_w[wavelet_u[ipix]+iY]
+
+        # Contstruct covariance kernel for new positions.
+        KmM = self.covariance_kernel(mag, self.Mcenters, lengthscale=self.lengthscale)
+        KcC = self.covariance_kernel(color, self.Ccenters, lengthscale=self.lengthscale)
+
+        matrix_multiply(x, self.b, (KmM @ self._inv_KMM), (KcC @ self._inv_KCC), n, self.H, self.M, self.C,\
+                  self.basis['wavelet_w'], self.basis['wavelet_v'], self.basis['wavelet_u'], pix)
 
         # Take expit
         p = self.expit(x)
@@ -357,21 +396,6 @@ class chisel(SelectionFunction):
             f.create_dataset('wavelet_n', data = wavelet_n)
             f.create_dataset('modes', data = wavelet_j, dtype = np.uint64, scaleoffset=0, **save_kwargs)
 
-
-#@njit
-def _fast_selection_function(F, L, N, pix, _ring, alm, KmM, KcC, _inv_KMM, _inv_KCC, _lambda, _azimuth, _lower, _upper):
-    # This isn't used because it's not giving a speed boost. Need to work out how to evaluate the selection probability faster!!!
-    for l in range(L):
-        # Estimate alm using Gaussian Process
-        for i, j in enumerate(range(_lower[l],_upper[l]+1)):
-            _alm_m = np.sum ( ((KmM @ _inv_KMM) @ alm[i]) * (KcC @ _inv_KCC) , axis=1)
-
-            F[:,l] += _lambda[_ring,j] * _alm_m
-
-    # Compute x
-    x = np.sum(F * _azimuth[:,pix].T, axis=1);
-
-    return x
 
 def fetch():
     """
