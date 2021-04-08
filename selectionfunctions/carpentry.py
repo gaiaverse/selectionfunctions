@@ -81,7 +81,7 @@ class chisel(SelectionFunction, CarpentryBase):
     basis_keyword='wavelet'
 
     def __init__(self, map_fname=None, bounds=True, basis_options={},
-                       nside=128, lmax=100, M=17, C=1, lengthscale=0.3,
+                       nside=128, lmax=100, M=17, C=1, lengthscale_m = 1.0, lengthscale_c = 1.0,
                        spherical_basis_directory='./SphericalBasis'):
         """
         Args:
@@ -111,7 +111,8 @@ class chisel(SelectionFunction, CarpentryBase):
         self.C=C
         self.lmax=lmax
         self._bounds = bounds
-        self.lengthscale = lengthscale
+        self.lengthscale_m = lengthscale_m
+        self.lengthscale_c = lengthscale_c
 
         self.L, self.H, self.R = 2 * self.lmax + 1, (self.lmax + 1) ** 2, 4 * self.nside - 1
 
@@ -145,10 +146,10 @@ class chisel(SelectionFunction, CarpentryBase):
         # Initialise covariance kernel
         Mbins = np.linspace(self.Mlim[0],self.Mlim[1], M+1)
         self.Mcenters = (Mbins[1:]+Mbins[:-1])/2
-        self._inv_KMM = np.linalg.inv(self.covariance_kernel(self.Mcenters, self.Mcenters, lengthscale=lengthscale) + 1e-15*np.eye(M))
+        self._inv_KMM = np.linalg.inv(self.covariance_kernel(self.Mcenters, self.Mcenters, lengthscale=lengthscale_m) + 1e-15*np.eye(M))
         Cbins = np.linspace(self.Clim[0],self.Clim[1], C+1)
         self.Ccenters = (Cbins[1:]+Cbins[:-1])/2
-        self._inv_KCC = np.linalg.inv(self.covariance_kernel(self.Ccenters, self.Ccenters, lengthscale=lengthscale) + 1e-15*np.eye(C))
+        self._inv_KCC = np.linalg.inv(self.covariance_kernel(self.Ccenters, self.Ccenters, lengthscale=lengthscale_c) + 1e-15*np.eye(C))
 
         t_interpolator = time()
 
@@ -205,19 +206,20 @@ class chisel(SelectionFunction, CarpentryBase):
         x = np.zeros(n)
 
         @njit
-        def matrix_multiply(x, b, KM, KC, n, H, M, C, wavelet_w, wavelet_v, wavelet_u, pix):
+        def matrix_multiply(x, b, KM, KC, wavelet_w, wavelet_v, wavelet_u, pix):
+            x*=0.
 
             # Iterate over pixels
             for i, ipix in enumerate(pix):
                 # Iterate over modes which are not sparsified in Y
-                for iY, iH in enumerate(wavelet_v[wavelet_u[ipix]:wavelet_u[ipix+1]]):
-                    x[i] += np.dot(np.dot(KM[i], b[iH]), KC[i]) * wavelet_w[wavelet_u[ipix]+iY]
+                for iY, iS in enumerate(wavelet_v[wavelet_u[ipix]:wavelet_u[ipix+1]]):
+                    x[i] += np.dot(np.dot(KM[i], b[iS]), KC[i]) * wavelet_w[wavelet_u[ipix]+iY]
 
         # Contstruct covariance kernel for new positions.
-        KmM = self.covariance_kernel(mag, self.Mcenters, lengthscale=self.lengthscale)
-        KcC = self.covariance_kernel(color, self.Ccenters, lengthscale=self.lengthscale)
+        KmM = self.covariance_kernel(mag, self.Mcenters, lengthscale=self.lengthscale_m)
+        KcC = self.covariance_kernel(color, self.Ccenters, lengthscale=self.lengthscale_c)
 
-        matrix_multiply(x, self.b, (KmM @ self._inv_KMM), (KcC @ self._inv_KCC), n, self.H, self.M, self.C,\
+        matrix_multiply(x, self.b, (KmM @ self._inv_KMM), (KcC @ self._inv_KCC), \
                   self.basis['wavelet_w'], self.basis['wavelet_v'], self.basis['wavelet_u'], pix)
 
         # Take expit
@@ -225,6 +227,16 @@ class chisel(SelectionFunction, CarpentryBase):
 
         return p
 
+    def _get_b(self, mag, color):
+
+        # Contstruct covariance kernel for new positions.
+        KmM = self.covariance_kernel(mag, self.Mcenters, lengthscale=self.lengthscale_m)
+        KcC = self.covariance_kernel(color, self.Ccenters, lengthscale=self.lengthscale_c)
+
+        # Estimate alm using Gaussian Process
+        _b = np.sum ( ((KmM @ self._inv_KMM) @ self.b) * (KcC @ self._inv_KCC)[None, :,:] , axis=2)
+
+        return _b
 
     def _process_basis_options(self, needlet = 'littlewoodpaley', j=[0], B = 2.0, p = 1.0, wavelet_tol = 1e-10):
 
@@ -249,8 +261,6 @@ class chisel(SelectionFunction, CarpentryBase):
         else:
             from selectionfunctions.SelectionFunctionUtils import littlewoodpaley
             self.weighting = littlewoodpaley(B = self.B)
-
-
 
     def _load_spherical_basis(self):
         """ Loads in the spherical basis file. If they don't exist, then generate them. The generator must be implemented in each child class. """
@@ -392,7 +402,8 @@ class hammer(SelectionFunction, CarpentryBase):
         self.C=C
         self.lmax=lmax
         self._bounds = bounds
-        self.lengthscale = lengthscale
+        self.lengthscale_m = lengthscale_m
+        self.lengthscale_c = lengthscale_c
 
         self.L, self.H, self.R = 2 * self.lmax + 1, (self.lmax + 1) ** 2, 4 * self.nside - 1
 
@@ -472,8 +483,8 @@ class hammer(SelectionFunction, CarpentryBase):
     def _get_alm(self, mag, color):
 
         # Contstruct covariance kernel for new positions.
-        KmM = self.covariance_kernel(mag, self.Mcenters, lengthscale=self.lengthscale)
-        KcC = self.covariance_kernel(color, self.Ccenters, lengthscale=self.lengthscale)
+        KmM = self.covariance_kernel(mag, self.Mcenters, lengthscale=self.lengthscale_m)
+        KcC = self.covariance_kernel(color, self.Ccenters, lengthscale=self.lengthscale_c)
 
         # Estimate alm using Gaussian Process
         _alm = np.sum ( ((KmM @ self._inv_KMM) @ self.alm) * (KcC @ self._inv_KCC)[None, :,:] , axis=2)
@@ -488,8 +499,8 @@ class hammer(SelectionFunction, CarpentryBase):
         for ii in tqdm.tqdm_notebook(range(x.shape[0]//chunksize + 1)):
 
             # Contstruct covariance kernel for new positions.
-            KmM = self.covariance_kernel(mag[ii*chunksize:(ii+1)*chunksize], self.Mcenters, lengthscale=self.lengthscale)
-            KcC = self.covariance_kernel(color[ii*chunksize:(ii+1)*chunksize], self.Ccenters, lengthscale=self.lengthscale)
+            KmM = self.covariance_kernel(mag[ii*chunksize:(ii+1)*chunksize], self.Mcenters, lengthscale=self.lengthscale_m)
+            KcC = self.covariance_kernel(color[ii*chunksize:(ii+1)*chunksize], self.Ccenters, lengthscale=self.lengthscale_c)
 
             # Estimate alm using Gaussian Process
             _alm_m = np.sum ( ((KmM @ self._inv_KMM) @ self.alm) * (KcC @ self._inv_KCC)[None, :,:] , axis=2).T
