@@ -2,9 +2,9 @@ import numpy as np
 from scipy import interpolate
 
 class littlewoodpaley:
-    
+
     def __init__(self, B = 2.0):
-        
+
         self.B = B
         self.psi_spline = interpolate.splrep ( \
         np.arange (-1.01, 0.02, 0.01),
@@ -43,7 +43,7 @@ class littlewoodpaley:
 	        4.58606108e-01,   4.66874931e-01,   4.75150394e-01,
 	        4.83430833e-01,   4.91714588e-01,   5.00000000e-01,
 	        5.08285412e-01]))
-    
+
     def psi (self, u):
         """Estimate the psi function.
 
@@ -61,7 +61,7 @@ class littlewoodpaley:
         else:
             u = np.array (u)  # Ensure that "u" is of the proper type
             return np.where (u > 0.0, 1 - value, value)
-        
+
     def phi (self, t):
         """Estimate the phi function.
 
@@ -72,45 +72,63 @@ class littlewoodpaley:
         if not np.isscalar (t): t = np.array (t)
         val = np.clip (1 - 2*self.B/(self.B - 1) * (t - 1.0/self.B), -1.0, 1.0)
         return self.psi (val)
-    
+
     def window_function (self, l, j):
         u = l * np.power(self.B,-j)
         return np.sqrt (np.clip (self.phi (u / self.B) - self.phi (u), 0.0, 5.0))
-    
+
     def start(self, j):
         return int(np.floor(self.B**(j-1)))
-    
+
     def end(self, j):
         return int(np.ceil(self.B**(j+1)))
-    
+
 class chisquare:
-    
+
     def __init__(self, j, p = 1.0, B = 2.0, F = 1e-6, normalise = False):
+
         self.j = np.array([_j for _j in j if _j >= 0])
         self.p = p
         self.B = B
         self.F = F
         self.normalise = normalise
         self.compute_normalisation()
+        self.compute_needlet_normalisation()
 
-        
-    
     def window_function(self, l, j):
         u = l*(l+1) / np.power(self.B,2.0*j)
         N = self.normalisation[l.astype(np.int)] if type(l) == np.ndarray else self.normalisation[int(l)]
+
         return N*np.power(u,self.p)*np.exp(-u)
-    
+
     def compute_normalisation(self):
-        
+
         self.lmax = self.end(max(self.j))
         self.normalisation = np.ones(self.lmax+1)
+
         if self.normalise == True:
             for l in range(1,self.lmax+1):
                 self.normalisation[l] = 1.0/np.sum(np.square(self.window_function(l,self.j)))
-            
+
+    def compute_needlet_normalisation(self):
+
+        self.needlet_normalisaiton = np.ones(len(self.j)+1)
+
+        for ineedlet, j in enumerate(self.j):
+            if j==-1:
+                self.needlet_normalisaiton[ineedlet]=1.0
+                continue
+
+            start = self.start(j)
+            end = self.end(j)
+            modes = np.arange(start, end + 1, dtype = 'float')
+            window = self.window_function(modes,j)*(2.0*modes+1.0)/np.sqrt(4.0*np.pi)#*npix_needle)
+
+            self.needlet_normalisaiton[ineedlet] = np.sum(window)
+
     def start(self, j):
         return 1
-    
+
     def end(self, j):
         from scipy import special
         G = -self.p*special.lambertw(-np.power(self.F,1.0/self.p)/np.e,k=-1).real*np.power(self.B,2.0*j)
