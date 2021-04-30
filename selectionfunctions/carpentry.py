@@ -145,11 +145,11 @@ class chisel(SelectionFunction, CarpentryBase):
         #self.spherical_basis_file = f"{self.basis_keyword}_{self.needlet}_nside{self.nside}_B{self.B}_"+ (f"p{self.p}_" if self.needlet == 'chisquare' else '') + f"tol{self.wavelet_tol}_j[{','.join([str(_i) for _i in self.j])}].h5"
 
         # Initialise covariance kernel
-        Mbins = np.linspace(self.Mlim[0],self.Mlim[1], M+1)
-        self.Mcenters = (Mbins[1:]+Mbins[:-1])/2
+        self.Mbins = np.linspace(self.Mlim[0],self.Mlim[1]+0.1, M+1)
+        self.Mcenters = (self.Mbins[1:]+self.Mbins[:-1])/2
         self._inv_KMM = np.linalg.inv(self.covariance_kernel(self.Mcenters, self.Mcenters, lengthscale=lengthscale_m) + 1e-15*np.eye(M))
-        Cbins = np.linspace(self.Clim[0],self.Clim[1], C+1)
-        self.Ccenters = (Cbins[1:]+Cbins[:-1])/2
+        self.Cbins = np.linspace(self.Clim[0],self.Clim[1], C+1)
+        self.Ccenters = (self.Cbins[1:]+self.Cbins[:-1])/2
         self._inv_KCC = np.linalg.inv(self.covariance_kernel(self.Ccenters, self.Ccenters, lengthscale=lengthscale_c) + 1e-15*np.eye(C))
 
         t_interpolator = time()
@@ -163,7 +163,7 @@ class chisel(SelectionFunction, CarpentryBase):
 
     @ensure_flat_icrs
     @ensure_gaia_g
-    def query(self, sources, chunksize=1000):
+    def query(self, sources, chunksize=1000, grid=False):
         """
         Returns the selection function at the requested coordinates.
 
@@ -183,11 +183,12 @@ class chisel(SelectionFunction, CarpentryBase):
         try: color = sources.photometry.measurement['gaia_bp_gaia_rp']
         except KeyError: color = np.zeros(len(mag))
 
-        # Switch positions to ring ordering
-        pix = hp.nest2ring(self.nside, hpxidx)
-
         # Evaluate selection function
-        selection_function = self._selection_function(mag, color, pix)
+        if grid: selection_function = self._selection_function_grid(mag, color, hpxidx)
+        else:
+            # Switch positions to ring ordering
+            pix = hp.nest2ring(self.nside, hpxidx)
+            selection_function = self._selection_function(mag, color, pix)
 
         if self._bounds == True:
             _outside_bounds = np.where( (mag<self._g_min) | (mag>self._g_max) )
@@ -228,6 +229,19 @@ class chisel(SelectionFunction, CarpentryBase):
 
         return p
 
+    def _selection_function_grid(self, mag, color, pix):
+
+        mag_idx = np.zeros(len(mag), dtype=np.int64)-1
+        for M in self.Mbins: mag_idx[M<mag] += 1
+        col_idx = np.zeros(len(color), dtype=np.int64)-1
+        for C in self.Cbins: col_idx[C<color] += 1
+
+        # Take expit
+        p = self.expit(self.x[mag_idx,col_idx,pix])
+        p[(mag_idx==-1)|(mag_idx>=self.Mcenters.shape[0])|(col_idx==-1)|(col_idx>=self.Ccenters.shape[0])] = 0
+
+        return p
+
     def _get_b(self, mag, color):
 
         # Contstruct covariance kernel for new positions.
@@ -243,24 +257,22 @@ class chisel(SelectionFunction, CarpentryBase):
 
         if type(j) in [list,tuple,np.ndarray]:
             self.j = sorted([int(_j) for _j in j])
-
         else:
             self.j = [_j for _j in range(-1,j+1)]
-
         self.needlet, self.B, self.p, self.wavelet_tol = needlet, B, p, wavelet_tol
 
         self.spherical_basis_file = f"{self.basis_keyword}_{self.needlet}_nside{self.nside}_B{self.B}_"+ (f"p{self.p}_" if self.needlet == 'chisquare' else '') + f"tol{self.wavelet_tol}_j[{','.join([str(_i) for _i in self.j])}].h5"
 
-        self.S = sum([self.order_to_npix(_j) if _j >= 0 else 1 for _j in self.j])
-
         assert self.B > 1.0
         assert self.wavelet_tol >= 0.0
         assert self.needlet in ['littlewoodpaley','chisquare']
+        self.S = sum([self.order_to_npix(_j) if _j >= 0 else 1 for _j in self.j])
+
         if self.needlet == 'chisquare':
-            from selectionfunctions.SelectionFunctionUtils import chisquare
-            self.weighting = chisquare(self.j, p = self.p, B = self.B)
+            from SelectionFunctionUtils import chisquare
+            self.weighting = chisquare(self.j, p = self.p, B = self.B, normalise=True)
         else:
-            from selectionfunctions.SelectionFunctionUtils import littlewoodpaley
+            from SelectionFunctionUtils import littlewoodpaley
             self.weighting = littlewoodpaley(B = self.B)
 
     def _load_spherical_basis(self):
@@ -277,6 +289,17 @@ class chisel(SelectionFunction, CarpentryBase):
             self.basis = {k:v[()] for k,v in sbf.items()}
 
         print('Spherical basis file loaded')
+
+    def _generate_spherical_basis(self,gsb_file, coords=None):
+
+        # Import dependencies
+        from numba import njit
+        from math import sin, cos
+        import sys
+
+        nside = self.nside
+        B = self.B
+        needle_sparse_tol = self.wavelet_tol
 
     def _generate_spherical_basis(self,gsb_file, coords=None):
 
@@ -336,7 +359,8 @@ class chisel(SelectionFunction, CarpentryBase):
             start = self.weighting.start(j)
             end = self.weighting.end(j)
             modes = np.arange(start, end + 1, dtype = 'float')
-            window = self.weighting.window_function(modes,j)*(2.0*modes+1.0)/np.sqrt(4.0*np.pi) / self.weighting.needlet_normalisaiton[ineedlet]
+            _lambda = 4*np.pi/npix_needle # 1/np.sum(self.weighting.window_function(modes,j)* (2.0*modes+1.0)/(4*np.pi))**2 # 1/npix_needle
+            window = np.sqrt(_lambda) * self.weighting.window_function(modes,j) * (2.0*modes+1.0)/(4.0*np.pi)
 
             for ipix_needle in tqdm.tqdm(range(npix_needle),file=sys.stdout):
 
@@ -627,7 +651,6 @@ class hammer(SelectionFunction, CarpentryBase):
             f.create_dataset('pixel_to_ring',   data = jpix,    shape = (Npix,),   dtype = np.uint32, scaleoffset=0, **save_kwargs)
             f.create_dataset('lower',   data = lower,    shape = (2*lmax+1,),   dtype = np.uint32, scaleoffset=0, **save_kwargs)
             f.create_dataset('upper',   data = upper,    shape = (2*lmax+1,),   dtype = np.uint32, scaleoffset=0, **save_kwargs)
-
 
 #@njit
 def _fast_selection_function(F, L, N, pix, _ring, alm, KmM, KcC, _inv_KMM, _inv_KCC, _lambda, _azimuth, _lower, _upper):
