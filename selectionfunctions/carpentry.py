@@ -36,7 +36,6 @@ from scipy import interpolate, special
 
 from .std_paths import *
 from .map import SelectionFunction, ensure_flat_icrs, coord2healpix
-import selectionfunctions.SelectionFunctionUtils as SelectionFunctionUtils
 from .source import ensure_gaia_g
 from . import fetch_utils
 
@@ -236,9 +235,13 @@ class chisel(SelectionFunction, CarpentryBase):
         col_idx = np.zeros(len(color), dtype=np.int64)-1
         for C in self.Cbins: col_idx[C<color] += 1
 
+        mag_idx[(mag_idx>=self.Mcenters.shape[0])] = self.Mcenters.shape[0]-1
+        col_idx[(col_idx>=self.Ccenters.shape[0])] = self.Ccenters.shape[0]-1
+
         # Take expit
         p = self.expit(self.x[mag_idx,col_idx,pix])
-        p[(mag_idx==-1)|(mag_idx>=self.Mcenters.shape[0])|(col_idx==-1)|(col_idx>=self.Ccenters.shape[0])] = 0
+        p[(mag<=self.Mbins[0])  |(mag>self.Mbins[-1])|\
+          (color<=self.Cbins[0])|(color>self.Cbins[-1])] = 0
 
         return p
 
@@ -269,10 +272,10 @@ class chisel(SelectionFunction, CarpentryBase):
         self.S = sum([self.order_to_npix(_j) if _j >= 0 else 1 for _j in self.j])
 
         if self.needlet == 'chisquare':
-            from SelectionFunctionUtils import chisquare
+            from selectionfunctions.SelectionFunctionUtils import chisquare
             self.weighting = chisquare(self.j, p = self.p, B = self.B, normalise=True)
         else:
-            from SelectionFunctionUtils import littlewoodpaley
+            from selectionfunctions.SelectionFunctionUtils import littlewoodpaley
             self.weighting = littlewoodpaley(B = self.B)
 
     def _load_spherical_basis(self):
