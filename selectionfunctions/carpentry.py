@@ -187,7 +187,10 @@ class chisel(SelectionFunction, CarpentryBase):
         else:
             # Switch positions to ring ordering
             pix = hp.nest2ring(self.nside, hpxidx)
-            selection_function = self._selection_function(mag, color, pix)
+            # Don't evaluate for outside range
+            selection_function = np.zeros(len(pix))
+            subset = (mag>self.Mbins[0])&(mag<self.Mbins[-1])
+            selection_function[subset] = self._selection_function(mag[subset], color[subset], pix[subset])
 
         if self._bounds == True:
             _outside_bounds = np.where( (mag<self._g_min) | (mag>self._g_max) )
