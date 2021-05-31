@@ -138,9 +138,10 @@ class chisel(SelectionFunction, CarpentryBase):
         self._process_basis_options(**basis_options)
 
         # Load spherical basis
-        self.spherical_basis_directory = os.path.join(data_dir(), spherical_basis_directory)
-        print(f'Spherical Basis: {self.spherical_basis_file}')
-        self._load_spherical_basis()
+        # self.spherical_basis_directory = os.path.join(data_dir(), spherical_basis_directory)
+        # print(f'Spherical Basis: {self.spherical_basis_file}')
+        # self._load_spherical_basis()
+
         #self.spherical_basis_file = f"{self.basis_keyword}_{self.needlet}_nside{self.nside}_B{self.B}_"+ (f"p{self.p}_" if self.needlet == 'chisquare' else '') + f"tol{self.wavelet_tol}_j[{','.join([str(_i) for _i in self.j])}].h5"
 
         # Initialise covariance kernel
@@ -162,12 +163,12 @@ class chisel(SelectionFunction, CarpentryBase):
 
     @ensure_flat_icrs
     @ensure_gaia_g
-    def query(self, sources, chunksize=1000, grid=False):
+    def query(self, sources, chunksize=1000, method='array'):
         """
         Returns the selection function at the requested coordinates.
 
         Args:
-            coords (:obj:`astropy.coordinates.SkyCoord`): The coordinates to query.
+            sources (:obj:`selectionfunctions.source.Source`): The coordinates, magnitude and colour to query.
 
         Returns:
             Selection function at the specified coordinates, as a fraction.
@@ -175,7 +176,7 @@ class chisel(SelectionFunction, CarpentryBase):
         """
 
         # Convert coordinates to healpix indices
-        if grid: nside = hp.npix2nside(self.x.shape[2])
+        if method=='array': nside = hp.npix2nside(self.x.shape[2])
         else: nside = self.nside
         hpxidx = coord2healpix(sources.coord, 'icrs', nside, nest=True)
 
@@ -185,18 +186,38 @@ class chisel(SelectionFunction, CarpentryBase):
         except KeyError: color = np.zeros(len(mag))
 
         # Evaluate selection function
-        if grid: selection_function = self._selection_function_grid(mag, color, hpxidx)
-        else:
+        if method=='array':
+            selection_function = self._selection_function(mag, color, hpxidx)
+        elif method=='gp':
             # Switch positions to ring ordering
             pix = hp.nest2ring(self.nside, hpxidx)
             # Don't evaluate for outside range
             selection_function = np.zeros(len(pix))
             subset = (mag>self.Mbins[0])&(mag<self.Mbins[-1])
-            selection_function[subset] = self._selection_function(mag[subset], color[subset], pix[subset])
+            selection_function[subset] = self._selection_function_gp(mag[subset], color[subset], pix[subset])
+        elif method=='basis':
+            raise ValueError('basis method not implemented yet.')
 
         return selection_function
 
     def _selection_function(self, mag, color, pix):
+
+        mag_idx = np.zeros(len(mag), dtype=np.int64)-1
+        for M in self.Mbins: mag_idx[M<mag] += 1
+        col_idx = np.zeros(len(color), dtype=np.int64)-1
+        for C in self.Cbins: col_idx[C<color] += 1
+
+        mag_idx[(mag_idx>=self.Mcenters.shape[0])] = self.Mcenters.shape[0]-1
+        col_idx[(col_idx>=self.Ccenters.shape[0])] = self.Ccenters.shape[0]-1
+
+        # Take expit
+        p = self.expit(self.x[mag_idx,col_idx,pix])
+        p[(mag<=self.Mbins[0])  |(mag>self.Mbins[-1])|\
+          (color<=self.Cbins[0])|(color>self.Cbins[-1])] = 0
+
+        return p
+
+    def _selection_function_gp(self, mag, color, pix):
 
         # Load in sparse matrix
         nmodes = 0
@@ -261,23 +282,6 @@ class chisel(SelectionFunction, CarpentryBase):
 
         # Take expit
         p = self.expit(x)
-
-        return p
-
-    def _selection_function_grid(self, mag, color, pix):
-
-        mag_idx = np.zeros(len(mag), dtype=np.int64)-1
-        for M in self.Mbins: mag_idx[M<mag] += 1
-        col_idx = np.zeros(len(color), dtype=np.int64)-1
-        for C in self.Cbins: col_idx[C<color] += 1
-
-        mag_idx[(mag_idx>=self.Mcenters.shape[0])] = self.Mcenters.shape[0]-1
-        col_idx[(col_idx>=self.Ccenters.shape[0])] = self.Ccenters.shape[0]-1
-
-        # Take expit
-        p = self.expit(self.x[mag_idx,col_idx,pix])
-        p[(mag<=self.Mbins[0])  |(mag>self.Mbins[-1])|\
-          (color<=self.Cbins[0])|(color>self.Cbins[-1])] = 0
 
         return p
 
