@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 #
-# cog_ii.py
-# Reads the Gaia DR2 selection function from Completeness
-# of the Gaia-verse Paper II, Boubert & Everall (2020).
+# cog_vi.py
+# Implements the selection function from Completeness
+# of the Gaia-verse Paper IV, in prep.
 #
-# Copyright (C) 2020  Douglas Boubert & Andrew Everall
+# Copyright (C) 2021  Douglas Boubert & Andrew Everall
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
