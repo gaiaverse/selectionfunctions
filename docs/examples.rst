@@ -8,7 +8,7 @@ Getting Started
 ---------------
 
 Here, we'll look up a selection function at a number of different locations on the sky and a number of different magnitudes.
-The principal object in `selectionfunctions` the `Source` object, which has both a `SkyCoord` attribute giving the position and a `Photometry` attribute giving the photometric measurements.
+The principal object in `selectionfunctions` is the `Source` object, which has both a `SkyCoord` attribute giving the position and a `Photometry` attribute giving the photometric measurements.
 We specify coordinates on the sky using
 `astropy.coordinates.SkyCoord <http://docs.astropy.org/en/stable/api/astropy.coordinates.SkyCoord.html>`_
 objects. This allows us a great deal of flexibility in how we specify sky

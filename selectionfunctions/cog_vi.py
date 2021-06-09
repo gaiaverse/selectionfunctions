@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 #
-# cog_ii.py
-# Reads the Gaia DR2 selection function from Completeness
-# of the Gaia-verse Paper II, Boubert & Everall (2020).
+# cog_vi.py
+# Implements the selection function from Completeness
+# of the Gaia-verse Paper IV, in prep.
 #
-# Copyright (C) 2020  Douglas Boubert & Andrew Everall
+# Copyright (C) 2021  Douglas Boubert & Andrew Everall
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -79,9 +79,9 @@ class chisel(SelectionFunction, CarpentryBase):
     """
     basis_keyword='wavelet'
 
-    def __init__(self, map_fname=None, bounds=True, basis_options={},
-                       nside=128, lmax=100, M=17, C=1, lengthscale_m = 1.0, lengthscale_c = 1.0,
+    def __init__(self, map_fname=None, basis_options={}, lmax=100, nside=32,
                        spherical_basis_directory='./SphericalBasis'):
+                       #nside=128, M=17, C=1, lengthscale_m = 1.0, lengthscale_c = 1.0,
         """
         Args:
             map_fname (Optional[:obj:`str`]): Filename of the BoubertEverall2019 selection function. Defaults to
@@ -100,19 +100,18 @@ class chisel(SelectionFunction, CarpentryBase):
         self.nside_to_npix = lambda nside: 12*nside**2
         self.order_to_npix = lambda order: self.nside_to_npix(self.order_to_nside(order))
 
-
-        map_fname = os.path.join(data_dir(), map_fname)
+        map_fname = os.path.join(data_dir(), 'cog_vi', map_fname)
 
         t_start = time()
 
         self.nside=nside
-        self.M=M
-        self.C=C
-        self.lmax=lmax
-        self._bounds = bounds
-        self.lengthscale_m = lengthscale_m
-        self.lengthscale_c = lengthscale_c
+        # self.M=M
+        # self.C=C
+        # self._bounds = bounds
+        # self.lengthscale_m = lengthscale_m
+        # self.lengthscale_c = lengthscale_c
 
+        self.lmax=lmax
         self.L, self.H, self.R = 2 * self.lmax + 1, (self.lmax + 1) ** 2, 4 * self.nside - 1
 
         with h5py.File(map_fname, 'r') as f:
@@ -122,15 +121,16 @@ class chisel(SelectionFunction, CarpentryBase):
             self.b = f['b'][...]
             self.Mlim = f['Mlim'][...]
             self.Clim = f['Clim'][...]
+
+            self.lengthscale_m, self.lengthscale_c = f['lengthscales'][...]
+
+            basis_options['j'] = f['j'][...]
+            basis_options['B'] = float(f['B'][...])
+
+        self.M, self.C, npix = self.x.shape
+
         self.H = self.b.shape[0]
         t_auxilliary = time()
-
-        if bounds == True:
-            self._g_min = 5.0
-            self._g_max = 22.0
-        else:
-            self._g_min = -np.inf
-            self._g_max = np.inf
 
         t_sf = time()
 
@@ -138,18 +138,19 @@ class chisel(SelectionFunction, CarpentryBase):
         self._process_basis_options(**basis_options)
 
         # Load spherical basis
-        self.spherical_basis_directory=spherical_basis_directory
-        print(f'Spherical Basis: {self.spherical_basis_file}')
-        self._load_spherical_basis()
+        # self.spherical_basis_directory = os.path.join(data_dir(), spherical_basis_directory)
+        # print(f'Spherical Basis: {self.spherical_basis_file}')
+        # self._load_spherical_basis()
+
         #self.spherical_basis_file = f"{self.basis_keyword}_{self.needlet}_nside{self.nside}_B{self.B}_"+ (f"p{self.p}_" if self.needlet == 'chisquare' else '') + f"tol{self.wavelet_tol}_j[{','.join([str(_i) for _i in self.j])}].h5"
 
         # Initialise covariance kernel
-        self.Mbins = np.linspace(self.Mlim[0],self.Mlim[1]+0.1, M+1)
+        self.Mbins = np.linspace(self.Mlim[0],self.Mlim[1], self.M+1)
         self.Mcenters = (self.Mbins[1:]+self.Mbins[:-1])/2
-        self._inv_KMM = np.linalg.inv(self.covariance_kernel(self.Mcenters, self.Mcenters, lengthscale=lengthscale_m) + 1e-15*np.eye(M))
-        self.Cbins = np.linspace(self.Clim[0],self.Clim[1], C+1)
+        self._inv_KMM = np.linalg.inv(self.covariance_kernel(self.Mcenters, self.Mcenters, lengthscale=self.lengthscale_m) + 1e-15*np.eye(self.M))
+        self.Cbins = np.linspace(self.Clim[0],self.Clim[1], self.C+1)
         self.Ccenters = (self.Cbins[1:]+self.Cbins[:-1])/2
-        self._inv_KCC = np.linalg.inv(self.covariance_kernel(self.Ccenters, self.Ccenters, lengthscale=lengthscale_c) + 1e-15*np.eye(C))
+        self._inv_KCC = np.linalg.inv(self.covariance_kernel(self.Ccenters, self.Ccenters, lengthscale=self.lengthscale_c) + 1e-15*np.eye(self.C))
 
         t_interpolator = time()
 
@@ -162,12 +163,12 @@ class chisel(SelectionFunction, CarpentryBase):
 
     @ensure_flat_icrs
     @ensure_gaia_g
-    def query(self, sources, chunksize=1000, grid=False):
+    def query(self, sources, chunksize=1000, method='array'):
         """
         Returns the selection function at the requested coordinates.
 
         Args:
-            coords (:obj:`astropy.coordinates.SkyCoord`): The coordinates to query.
+            sources (:obj:`selectionfunctions.source.Source`): The coordinates, magnitude and colour to query.
 
         Returns:
             Selection function at the specified coordinates, as a fraction.
@@ -175,30 +176,48 @@ class chisel(SelectionFunction, CarpentryBase):
         """
 
         # Convert coordinates to healpix indices
-        hpxidx = coord2healpix(sources.coord, 'icrs', self.nside, nest=True)
+        if method=='array': nside = hp.npix2nside(self.x.shape[2])
+        else: nside = self.nside
+        hpxidx = coord2healpix(sources.coord, 'icrs', nside, nest=True)
 
         # Extract Gaia G magnitude
         mag = sources.photometry.measurement['gaia_g']
-        try: color = sources.photometry.measurement['gaia_bp_gaia_rp']
+        try: color = sources.photometry.measurement['gaia_g_gaia_rp']
         except KeyError: color = np.zeros(len(mag))
 
         # Evaluate selection function
-        if grid: selection_function = self._selection_function_grid(mag, color, hpxidx)
-        else:
+        if method=='array':
+            selection_function = self._selection_function(mag, color, hpxidx)
+        elif method=='gp':
             # Switch positions to ring ordering
             pix = hp.nest2ring(self.nside, hpxidx)
             # Don't evaluate for outside range
             selection_function = np.zeros(len(pix))
             subset = (mag>self.Mbins[0])&(mag<self.Mbins[-1])
-            selection_function[subset] = self._selection_function(mag[subset], color[subset], pix[subset])
-
-        if self._bounds == True:
-            _outside_bounds = np.where( (mag<self._g_min) | (mag>self._g_max) )
-            selection_function[_outside_bounds] = 0.0
+            selection_function[subset] = self._selection_function_gp(mag[subset], color[subset], pix[subset])
+        elif method=='basis':
+            raise ValueError('basis method not implemented yet.')
 
         return selection_function
 
     def _selection_function(self, mag, color, pix):
+
+        mag_idx = np.zeros(len(mag), dtype=np.int64)-1
+        for M in self.Mbins: mag_idx[M<mag] += 1
+        col_idx = np.zeros(len(color), dtype=np.int64)-1
+        for C in self.Cbins: col_idx[C<color] += 1
+
+        mag_idx[(mag_idx>=self.Mcenters.shape[0])] = self.Mcenters.shape[0]-1
+        col_idx[(col_idx>=self.Ccenters.shape[0])] = self.Ccenters.shape[0]-1
+
+        # Take expit
+        p = self.expit(self.x[mag_idx,col_idx,pix])
+        p[(mag<=self.Mbins[0])  |(mag>self.Mbins[-1])|\
+          (color<=self.Cbins[0])|(color>self.Cbins[-1])] = 0
+
+        return p
+
+    def _selection_function_gp(self, mag, color, pix):
 
         # Load in sparse matrix
         nmodes = 0
@@ -231,20 +250,38 @@ class chisel(SelectionFunction, CarpentryBase):
 
         return p
 
-    def _selection_function_grid(self, mag, color, pix):
+    def _selection_function_basis(self, mag, colour, colat, lon):
 
-        mag_idx = np.zeros(len(mag), dtype=np.int64)-1
-        for M in self.Mbins: mag_idx[M<mag] += 1
-        col_idx = np.zeros(len(color), dtype=np.int64)-1
-        for C in self.Cbins: col_idx[C<color] += 1
+        Y = self._generate_spherical_basis(None, coords=(colat, lon))
 
-        mag_idx[(mag_idx>=self.Mcenters.shape[0])] = self.Mcenters.shape[0]-1
-        col_idx[(col_idx>=self.Ccenters.shape[0])] = self.Ccenters.shape[0]-1
+        # Load in sparse matrix
+        nmodes = 0
+        for j in self.j:
+            if j==-1: nmodes += 1
+            else: nmodes += 12*(2**j)**2
+        npix = self.nside_to_npix(self.nside)
+        n = len(mag)
+        x = np.zeros(n)
+
+        @njit
+        def matrix_multiply(x, b, KM, KC, wavelet_w, wavelet_v, wavelet_u, pix):
+            x*=0.
+
+            # Iterate over pixels
+            for i, ipix in enumerate(pix):
+                # Iterate over modes which are not sparsified in Y
+                for iY, iS in enumerate(wavelet_v[wavelet_u[ipix]:wavelet_u[ipix+1]]):
+                    x[i] += np.dot(np.dot(KM[i], b[iS]), KC[i]) * wavelet_w[wavelet_u[ipix]+iY]
+
+        # Contstruct covariance kernel for new positions.
+        KmM = self.covariance_kernel(mag, self.Mcenters, lengthscale=self.lengthscale_m)
+        KcC = self.covariance_kernel(color, self.Ccenters, lengthscale=self.lengthscale_c)
+
+        matrix_multiply(x, self.b, (KmM @ self._inv_KMM), (KcC @ self._inv_KCC), \
+                  self.basis['wavelet_w'], self.basis['wavelet_v'], self.basis['wavelet_u'], pix)
 
         # Take expit
-        p = self.expit(self.x[mag_idx,col_idx,pix])
-        p[(mag<=self.Mbins[0])  |(mag>self.Mbins[-1])|\
-          (color<=self.Cbins[0])|(color>self.Cbins[-1])] = 0
+        p = self.expit(x)
 
         return p
 
@@ -275,37 +312,27 @@ class chisel(SelectionFunction, CarpentryBase):
         self.S = sum([self.order_to_npix(_j) if _j >= 0 else 1 for _j in self.j])
 
         if self.needlet == 'chisquare':
-            from selectionfunctions.SelectionFunctionUtils import chisquare
             self.weighting = chisquare(self.j, p = self.p, B = self.B, normalise=True)
         else:
-            from selectionfunctions.SelectionFunctionUtils import littlewoodpaley
             self.weighting = littlewoodpaley(B = self.B)
 
     def _load_spherical_basis(self):
         """ Loads in the spherical basis file. If they don't exist, then generate them. The generator must be implemented in each child class. """
 
-        _spherical_basis_files = self.spherical_basis_file
+        if not os.path.exists(self.spherical_basis_directory):
+            raise ValueError('Directory, {0} does not exist'.format(self.spherical_basis_directory))
 
-        if not os.path.isfile(self.spherical_basis_directory + self.spherical_basis_file):
+        spherical_basis_path = os.path.join(self.spherical_basis_directory, self.spherical_basis_file)
+
+        if not os.path.isfile(spherical_basis_path):
             print('Spherical basis file does not exist, generating... (this may take some time!)')
-            self._generate_spherical_basis(self.spherical_basis_directory + self.spherical_basis_file)
+            self._generate_spherical_basis(spherical_basis_path)
 
         # Load spherical wavelets
-        with h5py.File(self.spherical_basis_directory + self.spherical_basis_file, 'r') as sbf:
+        with h5py.File(spherical_basis_path, 'r') as sbf:
             self.basis = {k:v[()] for k,v in sbf.items()}
 
         print('Spherical basis file loaded')
-
-    def _generate_spherical_basis(self,gsb_file, coords=None):
-
-        # Import dependencies
-        from numba import njit
-        from math import sin, cos
-        import sys
-
-        nside = self.nside
-        B = self.B
-        needle_sparse_tol = self.wavelet_tol
 
     def _generate_spherical_basis(self,gsb_file, coords=None):
 
@@ -658,6 +685,142 @@ class hammer(SelectionFunction, CarpentryBase):
             f.create_dataset('lower',   data = lower,    shape = (2*lmax+1,),   dtype = np.uint32, scaleoffset=0, **save_kwargs)
             f.create_dataset('upper',   data = upper,    shape = (2*lmax+1,),   dtype = np.uint32, scaleoffset=0, **save_kwargs)
 
+class littlewoodpaley:
+
+    def __init__(self, B = 2.0):
+
+        self.B = B
+        self.psi_spline = interpolate.splrep ( \
+        np.arange (-1.01, 0.02, 0.01),
+        np.array([  0.00000000e+00,   0.00000000e+00,   6.10726446e-26,
+	        1.80473593e-14,   1.63146885e-10,   1.81011396e-08,
+	        3.33941762e-07,   2.47115014e-06,   1.07501585e-05,
+	        3.33635137e-05,   8.23638779e-05,   1.72785830e-04,
+	        3.21411357e-04,   5.45573939e-04,   8.62196482e-04,
+	        1.28711301e-03,   1.83464846e-03,   2.51740299e-03,
+	        3.34618479e-03,   4.33004296e-03,   5.47636332e-03,
+	        6.79099953e-03,   8.27842094e-03,   9.94186438e-03,
+	        1.17834820e-02,   1.38044808e-02,   1.60052501e-02,
+	        1.83854783e-02,   2.09442559e-02,   2.36801676e-02,
+	        2.65913725e-02,   2.96756753e-02,   3.29305873e-02,
+	        3.63533793e-02,   3.99411282e-02,   4.36907558e-02,
+	        4.75990635e-02,   5.16627608e-02,   5.58784904e-02,
+	        6.02428494e-02,   6.47524071e-02,   6.94037205e-02,
+	        7.41933466e-02,   7.91178536e-02,   8.41738297e-02,
+	        8.93578906e-02,   9.46666853e-02,   1.00096901e-01,
+	        1.05645269e-01,   1.11308565e-01,   1.17083611e-01,
+	        1.22967283e-01,   1.28956505e-01,   1.35048255e-01,
+	        1.41239561e-01,   1.47527507e-01,   1.53909226e-01,
+	        1.60381906e-01,   1.66942786e-01,   1.73589155e-01,
+	        1.80318352e-01,   1.87127766e-01,   1.94014833e-01,
+	        2.00977036e-01,   2.08011904e-01,   2.15117011e-01,
+	        2.22289973e-01,   2.29528448e-01,   2.36830134e-01,
+	        2.44192769e-01,   2.51614129e-01,   2.59092025e-01,
+	        2.66624305e-01,   2.74208849e-01,   2.81843571e-01,
+	        2.89526414e-01,   2.97255354e-01,   3.05028392e-01,
+	        3.12843559e-01,   3.20698910e-01,   3.28592527e-01,
+	        3.36522513e-01,   3.44486996e-01,   3.52484123e-01,
+	        3.60512062e-01,   3.68568999e-01,   3.76653139e-01,
+	        3.84762704e-01,   3.92895928e-01,   4.01051064e-01,
+	        4.09226374e-01,   4.17420136e-01,   4.25630637e-01,
+	        4.33856174e-01,   4.42095054e-01,   4.50345591e-01,
+	        4.58606108e-01,   4.66874931e-01,   4.75150394e-01,
+	        4.83430833e-01,   4.91714588e-01,   5.00000000e-01,
+	        5.08285412e-01]))
+
+    def psi (self, u):
+        """Estimate the psi function.
+
+        "Psi" is the name of a function defined in the article by Marinucci et al.
+        (2008) that is used to build the actual needlet."""
+
+        neg_u = np.clip (-np.abs (u), -1.0, 0.0)
+        value = interpolate.splev (neg_u, self.psi_spline)
+
+        if np.isscalar (u):
+            if u > 0.0:
+                return 1.0 - value
+            else:
+                return value
+        else:
+            u = np.array (u)  # Ensure that "u" is of the proper type
+            return np.where (u > 0.0, 1 - value, value)
+
+    def phi (self, t):
+        """Estimate the phi function.
+
+        "Phi" is the name of a function defined in the article by Marinucci et al.
+        (2008) that is used to build the actual needlet."""
+
+        # Ensure that "t" is of the correct type
+        if not np.isscalar (t): t = np.array (t)
+        val = np.clip (1 - 2*self.B/(self.B - 1) * (t - 1.0/self.B), -1.0, 1.0)
+        return self.psi (val)
+
+    def window_function (self, l, j):
+        u = l * np.power(self.B,-j)
+        return np.sqrt (np.clip (self.phi (u / self.B) - self.phi (u), 0.0, 5.0))
+
+    def start(self, j):
+        return int(np.floor(self.B**(j-1)))
+
+    def end(self, j):
+        return int(np.ceil(self.B**(j+1)))
+
+class chisquare:
+
+    def __init__(self, j, p = 1.0, B = 2.0, F = 1e-6, normalise = False):
+
+        self.j = np.array([_j for _j in j if _j >= 0])
+        self.p = p
+        self.B = B
+        self.F = F
+        self.normalise = normalise
+        self.compute_normalisation()
+        self.compute_needlet_normalisation()
+
+    def window_function(self, l, j):
+        u = l*(l+1) / np.power(self.B,2.0*j)
+        N = self.normalisation[l.astype(np.int)] if type(l) == np.ndarray else self.normalisation[int(l)]
+
+        return N*np.power(u,self.p)*np.exp(-u)
+
+    def compute_normalisation(self):
+
+        self.lmax = self.end(max(self.j))
+        self.normalisation = np.ones(self.lmax+1)
+
+        if self.normalise == True:
+            # Renormalise (Marinucci 2008) Equation 2
+            jinf = np.arange(1000)
+            for l in range(1,self.lmax+1):
+                self.normalisation[l] = 1.0/np.sum(np.square(self.window_function(l,jinf)))
+
+    def compute_needlet_normalisation(self):
+
+        self.needlet_normalisaiton = np.ones(len(self.j)+1)
+
+        for ineedlet, j in enumerate(self.j):
+            if j==-1:
+                self.needlet_normalisaiton[ineedlet]=1.0
+                continue
+
+            start = self.start(j)
+            end = self.end(j)
+            modes = np.arange(start, end + 1, dtype = 'float')
+            window = self.window_function(modes,j)*(2.0*modes+1.0)/np.sqrt(4.0*np.pi)#*npix_needle)
+
+            self.needlet_normalisaiton[ineedlet] = np.sum(window)
+
+    def start(self, j):
+        return 1
+
+    def end(self, j):
+        from scipy import special
+        G = -self.p*special.lambertw(-np.power(self.F,1.0/self.p)/np.e,k=-1).real*np.power(self.B,2.0*j)
+        return int(np.ceil(0.5*(-1.0+np.sqrt(1.0+4.0*G))))
+
+
 #@njit
 def _fast_selection_function(F, L, N, pix, _ring, alm, KmM, KcC, _inv_KMM, _inv_KCC, _lambda, _azimuth, _lower, _upper):
     # This isn't used because it's not giving a speed boost. Need to work out how to evaluate the selection probability faster!!!
@@ -673,16 +836,16 @@ def _fast_selection_function(F, L, N, pix, _ring, alm, KmM, KcC, _inv_KMM, _inv_
 
     return x
 
-def fetch():
+def fetch(version="astrometry_cogvi"):
     """
     Downloads the specified version of the Bayestar dust map.
 
     Args:
         version (Optional[:obj:`str`]): The map version to download. Valid versions are
-            :obj:`'bayestar2019'` (Green, Schlafly, Finkbeiner et al. 2019),
-            :obj:`'bayestar2017'` (Green, Schlafly, Finkbeiner et al. 2018) and
-            :obj:`'bayestar2015'` (Green, Schlafly, Finkbeiner et al. 2015). Defaults
-            to :obj:`'bayestar2019'`.
+            :obj:`'astrometry_cogvi'` (Everall & Boubert 2021),
+            :obj:`'rvs_cogvi'` (Everall & Boubert 2021) and
+            :obj:`'ruwe1p4_cogvi'` (Everall & Boubert 2021). Defaults
+            to :obj:`'edr3_astrometry_cogvi'`.
 
     Raises:
         :obj:`ValueError`: The requested version of the map does not exist.
@@ -694,22 +857,19 @@ def fetch():
             was a problem connecting to the Dataverse.
     """
 
-    doi = {'dr2': '10.7910/DVN/PDFOVC',
-           'edr3_nfield': '10.7910/DVN/I3TGTS'}
+    doi = {'astrometry_cogvi': None,
+           'rvs_cogvi': None,
+           'ruwe1p4_cogvi': None,
+           }
 
-    requirements = {'dr2': {'filename': 'cog_ii_dr2.h5'},
-                    'edr3_nfield':{'filename': 'n_field_dr3.h5'}}
+    requirements = {'astrometry_cogvi': {'filename': 'cog_ii_dr2.h5'},
+                   'rvs_cogvi': {'filename': 'cog_ii_dr2.h5'},
+                   'ruwe1p4_cogvi': {'filename': 'cog_ii_dr2.h5'},
+                   }
 
-    local_fname = os.path.join(data_dir(), 'cog_ii', requirements['dr2']['filename'])
+    local_fname = os.path.join(data_dir(), 'cog_vi', requirements[version]['filename'])
     # Download the data
     fetch_utils.dataverse_download_doi(
-        doi['dr2'],
+        doi[version],
         local_fname,
-        file_requirements=requirements['dr2'])
-
-    local_fname = os.path.join(data_dir(), 'cog_ii', requirements['edr3_nfield']['filename'])
-    # Download the data
-    fetch_utils.dataverse_download_doi(
-        doi['edr3_nfield'],
-        local_fname,
-        file_requirements=requirements['edr3_nfield'])
+        file_requirements=requirements[version])
