@@ -143,8 +143,8 @@ class subset_sf(SelectionFunction, CarpentryBase):
         self.nside_to_npix = lambda nside: 12*nside**2
         self.order_to_npix = lambda order: self.nside_to_npix(self.order_to_nside(order))
 
-        if map_fname is None: map_fname = os.path.join(data_dir(), 'cog_v', version+'.h5')
-        else: map_fname = os.path.join(data_dir(), 'cog_v', map_fname)
+        if map_fname is None: map_fname = os.path.join(data_dir(), version+'.h5')
+        else: map_fname = os.path.join(data_dir(), map_fname)
 
         t_start = time()
 
@@ -921,7 +921,7 @@ def fetch(version="astrometry_cogv"):
                    'ruwe1p4_cogv': {'filename': 'cog_ii_dr2.h5'},
                    }
 
-    local_fname = os.path.join(data_dir(), 'cog_v', requirements[version]['filename'])
+    local_fname = os.path.join(data_dir(), requirements[version]['filename'])
     # Download the data
     fetch_utils.dataverse_download_doi(
         doi[version],
