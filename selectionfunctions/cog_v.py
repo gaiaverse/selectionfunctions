@@ -73,13 +73,56 @@ class CarpentryBase():
 
         return p
 
-class chisel(SelectionFunction, CarpentryBase):
+    def _process_sigma(self,sigma):
+
+        print(type(sigma))
+
+        # Process sigma
+        if sigma is None:
+            self.sigma = np.ones(self.S)
+        elif isinstance(sigma, np.ndarray):
+            assert sigma.shape == (self.S,)
+            self.sigma = sigma
+        elif callable(sigma):
+            self.sigma = sigma(self.basis['modes'])
+        elif type(sigma) in [list,tuple]:
+            self.sigma = self._process_sigma_basis_specific(sigma)
+        else:
+            self.sigma = sigma*np.ones(self.S)
+
+    def _process_sigma_basis_specific(self,sigma):
+        assert len(sigma) == 2
+        power_spectrum = lambda l: np.exp(sigma[0]) * np.power(1.0+l,sigma[1])
+
+        _sigma = np.zeros(self.S)
+        running_index = 0
+        for j in self.j:
+
+            if j == -1:
+                _sigma[running_index] = np.exp(sigma[0])
+                running_index += 1
+                continue
+
+            npix_needle = self.order_to_npix(j)
+
+            start = self.weighting.start(j)
+            end = self.weighting.end(j)
+            modes = np.arange(start, end + 1, dtype = 'float')
+            _lambda = 4*np.pi/npix_needle # 1/np.sum(self.weighting.window_function(modes,j)* (2.0*modes+1.0)/(4*np.pi))**2 #1/npix_needle
+            window = _lambda * self.weighting.window_function(modes,j)**2 * (2.0*modes+1.0)/(4*np.pi) * power_spectrum(modes)
+
+            _sigma[running_index:running_index+npix_needle] = np.sqrt(window.sum())
+            running_index += npix_needle
+
+        return _sigma
+
+class subset_sf(SelectionFunction, CarpentryBase):
     """
     Queries the Gaia DR2 selection function (Boubert & Everall, 2019).
     """
     basis_keyword='wavelet'
 
-    def __init__(self, map_fname=None, basis_options={}, lmax=100, nside=32,
+    def __init__(self, version="astrometry_cogv", map_fname=None, basis_options={}, lmax=100, nside=32,
                        spherical_basis_directory='./SphericalBasis'):
                        #nside=128, M=17, C=1, lengthscale_m = 1.0, lengthscale_c = 1.0,
         """
@@ -100,7 +143,8 @@ class chisel(SelectionFunction, CarpentryBase):
         self.nside_to_npix = lambda nside: 12*nside**2
         self.order_to_npix = lambda order: self.nside_to_npix(self.order_to_nside(order))
 
-        map_fname = os.path.join(data_dir(), 'cog_vi', map_fname)
+        if map_fname is None: map_fname = os.path.join(data_dir(), 'cog_v', version+'.h5')
+        else: map_fname = os.path.join(data_dir(), 'cog_v', map_fname)
 
         t_start = time()
 
@@ -119,13 +163,17 @@ class chisel(SelectionFunction, CarpentryBase):
             print('Loading auxilliary data ...')
             self.x = f['x'][...]
             self.b = f['b'][...]
-            self.Mlim = f['Mlim'][...]
-            self.Clim = f['Clim'][...]
+            self.z = f['z'][...]
+            self.Mlim = f['x'].attrs['Mlim'][...]
+            self.Clim = f['x'].attrs['Clim'][...]
 
-            self.lengthscale_m, self.lengthscale_c = f['lengthscales'][...]
+            self.lengthscale_m = f['x'].attrs['lm']
+            self.lengthscale_c = f['x'].attrs['lc']
 
-            basis_options['j'] = f['j'][...]
-            basis_options['B'] = float(f['B'][...])
+            basis_options['j'] = f['x'].attrs['j']
+            basis_options['B'] = f['x'].attrs['B']
+
+            sigma = list(f['x'].attrs['sigma'])
 
         self.M, self.C, npix = self.x.shape
 
@@ -136,11 +184,8 @@ class chisel(SelectionFunction, CarpentryBase):
 
         # Process basis-specific options
         self._process_basis_options(**basis_options)
-
-        # Load spherical basis
-        # self.spherical_basis_directory = os.path.join(data_dir(), spherical_basis_directory)
-        # print(f'Spherical Basis: {self.spherical_basis_file}')
-        # self._load_spherical_basis()
+        self.spherical_basis_directory = os.path.join(data_dir(), spherical_basis_directory)
+        self._process_sigma(sigma)
 
         #self.spherical_basis_file = f"{self.basis_keyword}_{self.needlet}_nside{self.nside}_B{self.B}_"+ (f"p{self.p}_" if self.needlet == 'chisquare' else '') + f"tol{self.wavelet_tol}_j[{','.join([str(_i) for _i in self.j])}].h5"
 
@@ -189,6 +234,10 @@ class chisel(SelectionFunction, CarpentryBase):
         if method=='array':
             selection_function = self._selection_function(mag, color, hpxidx)
         elif method=='gp':
+            # Load spherical basis
+            if not hasattr(self, 'basis'):
+                print(f'Spherical Basis: {self.spherical_basis_file}')
+                self._load_spherical_basis()
             # Switch positions to ring ordering
             pix = hp.nest2ring(self.nside, hpxidx)
             # Don't evaluate for outside range
@@ -229,7 +278,7 @@ class chisel(SelectionFunction, CarpentryBase):
         x = np.zeros(n)
 
         @njit
-        def matrix_multiply(x, b, KM, KC, wavelet_w, wavelet_v, wavelet_u, pix):
+        def matrix_multiply(x, b, KM, KC, sigma, wavelet_w, wavelet_v, wavelet_u, pix):
             x*=0.
 
             # Iterate over pixels
@@ -242,7 +291,12 @@ class chisel(SelectionFunction, CarpentryBase):
         KmM = self.covariance_kernel(mag, self.Mcenters, lengthscale=self.lengthscale_m)
         KcC = self.covariance_kernel(color, self.Ccenters, lengthscale=self.lengthscale_c)
 
-        matrix_multiply(x, self.b, (KmM @ self._inv_KMM), (KcC @ self._inv_KCC), \
+        print(KcC.shape)
+        print(np.linalg.cholesky(KmM))
+
+        # matrix_multiply(x, self.b, (KmM @ self._inv_KMM), (KcC @ self._inv_KCC),\
+        #           self.basis['wavelet_w'], self.basis['wavelet_v'], self.basis['wavelet_u'], pix)
+        matrix_multiply(x, self.z, np.linalg.cholesky(KmM), KcC, self.sigma,\
                   self.basis['wavelet_w'], self.basis['wavelet_v'], self.basis['wavelet_u'], pix)
 
         # Take expit
@@ -264,21 +318,21 @@ class chisel(SelectionFunction, CarpentryBase):
         x = np.zeros(n)
 
         @njit
-        def matrix_multiply(x, b, KM, KC, wavelet_w, wavelet_v, wavelet_u, pix):
+        def matrix_multiply(x, b, KM, KC, sigma, wavelet_w, wavelet_v, wavelet_u, pix):
             x*=0.
 
             # Iterate over pixels
             for i, ipix in enumerate(pix):
                 # Iterate over modes which are not sparsified in Y
                 for iY, iS in enumerate(wavelet_v[wavelet_u[ipix]:wavelet_u[ipix+1]]):
-                    x[i] += np.dot(np.dot(KM[i], b[iS]), KC[i]) * wavelet_w[wavelet_u[ipix]+iY]
+                    x[i] += np.dot(np.dot(KM[i], b[iS]), KC[i]) * sigma[iS] * wavelet_w[wavelet_u[ipix]+iY]
 
         # Contstruct covariance kernel for new positions.
         KmM = self.covariance_kernel(mag, self.Mcenters, lengthscale=self.lengthscale_m)
         KcC = self.covariance_kernel(color, self.Ccenters, lengthscale=self.lengthscale_c)
 
-        matrix_multiply(x, self.b, (KmM @ self._inv_KMM), (KcC @ self._inv_KCC), \
-                  self.basis['wavelet_w'], self.basis['wavelet_v'], self.basis['wavelet_u'], pix)
+        matrix_multiply(x, self.z, (KmM @ self._inv_KMM), (KcC @ self._inv_KCC), \
+                  self.sigma, self.basis['wavelet_w'], self.basis['wavelet_v'], self.basis['wavelet_u'], pix)
 
         # Take expit
         p = self.expit(x)
@@ -836,7 +890,7 @@ def _fast_selection_function(F, L, N, pix, _ring, alm, KmM, KcC, _inv_KMM, _inv_
 
     return x
 
-def fetch(version="astrometry_cogvi"):
+def fetch(version="astrometry_cogv"):
     """
     Downloads the specified version of the Bayestar dust map.
 
@@ -857,17 +911,17 @@ def fetch(version="astrometry_cogvi"):
             was a problem connecting to the Dataverse.
     """
 
-    doi = {'astrometry_cogvi': None,
-           'rvs_cogvi': None,
-           'ruwe1p4_cogvi': None,
+    doi = {'astrometry_cogv': None,
+           'rvs_cogv': None,
+           'ruwe1p4_cogv': None,
            }
 
-    requirements = {'astrometry_cogvi': {'filename': 'cog_ii_dr2.h5'},
-                   'rvs_cogvi': {'filename': 'cog_ii_dr2.h5'},
-                   'ruwe1p4_cogvi': {'filename': 'cog_ii_dr2.h5'},
+    requirements = {'astrometry_cogv': {'filename': 'cog_ii_dr2.h5'},
+                   'rvs_cogv': {'filename': 'cog_ii_dr2.h5'},
+                   'ruwe1p4_cogv': {'filename': 'cog_ii_dr2.h5'},
                    }
 
-    local_fname = os.path.join(data_dir(), 'cog_vi', requirements[version]['filename'])
+    local_fname = os.path.join(data_dir(), 'cog_v', requirements[version]['filename'])
     # Download the data
     fetch_utils.dataverse_download_doi(
         doi[version],
