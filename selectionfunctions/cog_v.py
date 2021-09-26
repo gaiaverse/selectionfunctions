@@ -123,8 +123,8 @@ class subset_sf(SelectionFunction, CarpentryBase):
     basis_keyword='wavelet'
 
     def __init__(self, version="astrometry_cogv", map_fname=None, basis_options={}, lmax=100, nside=32,
-                       spherical_basis_directory='./SphericalBasis'):
-                       #nside=128, M=17, C=1, lengthscale_m = 1.0, lengthscale_c = 1.0,
+                       spherical_basis_directory='./SphericalBasis',
+                       Mlim=None, Clim=None, j=None, B=None, lengthscale_m = None, lengthscale_c = None):
         """
         Args:
             map_fname (Optional[:obj:`str`]): Filename of the BoubertEverall2019 selection function. Defaults to
@@ -164,19 +164,20 @@ class subset_sf(SelectionFunction, CarpentryBase):
             self.x = f['x'][...]
             self.b = f['b'][...]
             self.z = f['z'][...]
-            self.Mlim = f['x'].attrs['Mlim'][...]
-            self.Clim = f['x'].attrs['Clim'][...]
 
-            self.lengthscale_m = f['x'].attrs['lm']
-            self.lengthscale_c = f['x'].attrs['lc']
+            for attr in ['Mlim', 'Clim', 'lengthscale_m', 'lengthscale_c']:
+                if locals()[attr] is None:
+                    setattr(self, attr, f['x'].attrs[attr][...])
+                else:
+                    setattr(self, attr, locals()[attr])
 
-            basis_options['j'] = f['x'].attrs['j']
-            basis_options['B'] = f['x'].attrs['B']
-
-            sigma = list(f['x'].attrs['sigma'])
+            for attr in ['j','B']:
+                if locals()[attr] is None:
+                    basis_options[attr] = f['x'].attrs[attr][...]
+                else:
+                    basis_options[attr] = locals()[attr]
 
         self.M, self.C, npix = self.x.shape
-
         self.H = self.b.shape[0]
         t_auxilliary = time()
 
@@ -185,7 +186,7 @@ class subset_sf(SelectionFunction, CarpentryBase):
         # Process basis-specific options
         self._process_basis_options(**basis_options)
         self.spherical_basis_directory = os.path.join(data_dir(), spherical_basis_directory)
-        self._process_sigma(sigma)
+        # self._process_sigma(sigma)
 
         #self.spherical_basis_file = f"{self.basis_keyword}_{self.needlet}_nside{self.nside}_B{self.B}_"+ (f"p{self.p}_" if self.needlet == 'chisquare' else '') + f"tol{self.wavelet_tol}_j[{','.join([str(_i) for _i in self.j])}].h5"
 
