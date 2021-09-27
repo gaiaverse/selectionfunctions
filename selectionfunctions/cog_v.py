@@ -891,16 +891,19 @@ def _fast_selection_function(F, L, N, pix, _ring, alm, KmM, KcC, _inv_KMM, _inv_
 
     return x
 
-def fetch(version="astrometry_cogv"):
+def fetch(version="cog_v", subset="astrometry"):
     """
     Downloads the specified version of the Bayestar dust map.
 
     Args:
-        version (Optional[:obj:`str`]): The map version to download. Valid versions are
-            :obj:`'astrometry_cogvi'` (Everall & Boubert 2021),
-            :obj:`'rvs_cogvi'` (Everall & Boubert 2021) and
-            :obj:`'ruwe1p4_cogvi'` (Everall & Boubert 2021). Defaults
-            to :obj:`'edr3_astrometry_cogvi'`.
+        version (Optional[:obj:`str`]): The version to download. Valid versions are
+            :obj:`'cog_v'` (Everall & Boubert 2021) Defaults,
+
+        subset (Optional[:obj:`str`]): The map to download. Valid versions are
+            :obj:`'astrometry_cogv'` Defaults,
+            :obj:`'rvs_cogv'`,
+            :obj:`'ruwe1p4_cogv'` and
+            :obj:`'ruwe1p4_magonly_cogv'`.
 
     Raises:
         :obj:`ValueError`: The requested version of the map does not exist.
@@ -912,19 +915,18 @@ def fetch(version="astrometry_cogv"):
             was a problem connecting to the Dataverse.
     """
 
-    doi = {'astrometry_cogv': None,
-           'rvs_cogv': None,
-           'ruwe1p4_cogv': None,
+    doi = {'cog_v': "10.7910/DVN/TCGI69"
            }
 
-    requirements = {'astrometry_cogv': {'filename': 'cog_ii_dr2.h5'},
-                   'rvs_cogv': {'filename': 'cog_ii_dr2.h5'},
-                   'ruwe1p4_cogv': {'filename': 'cog_ii_dr2.h5'},
+    requirements = {'astrometry': {'filename': 'astrometry_cogv.h5'},
+                    'rvs': {'filename': 'rvs_cogv.h5'},
+                    'ruwe1p4': {'filename': 'ruwe1p4_cogv.h5'},
+                    'ruwe1p4_magonly': {'filename': 'ruwe1p4_magonly_cogv.h5'}
                    }
 
-    local_fname = os.path.join(data_dir(), requirements[version]['filename'])
+    local_fname = os.path.join(data_dir(), requirements[subset]['filename'])
     # Download the data
     fetch_utils.dataverse_download_doi(
         doi[version],
         local_fname,
-        file_requirements=requirements[version])
+        file_requirements=requirements[subset])
