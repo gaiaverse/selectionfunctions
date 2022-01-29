@@ -33,10 +33,11 @@ import h5py
 import tqdm
 import healpy as hp
 from scipy import interpolate, special
+import warnings
 
 from .std_paths import *
 from .map import SelectionFunction, ensure_flat_icrs, coord2healpix
-from .source import ensure_gaia_g
+from .source import ensure_gaia_g, ensure_gaia_g_gaia_rp
 from . import fetch_utils
 
 from time import time
@@ -179,6 +180,8 @@ class subset_sf(SelectionFunction, CarpentryBase):
 
         self.M, self.C, npix = self.x.shape
         self.H = self.b.shape[0]
+        # Require colour if more than 1 colour bin
+        self.require_colour = self.C>1
         t_auxilliary = time()
 
         t_sf = time()
@@ -209,6 +212,7 @@ class subset_sf(SelectionFunction, CarpentryBase):
 
     @ensure_flat_icrs
     @ensure_gaia_g
+    @ensure_gaia_g_gaia_rp
     def query(self, sources, chunksize=1000, method='array'):
         """
         Returns the selection function at the requested coordinates.
@@ -228,11 +232,19 @@ class subset_sf(SelectionFunction, CarpentryBase):
 
         # Extract Gaia G magnitude
         mag = sources.photometry.measurement['gaia_g']
-        try: color = sources.photometry.measurement['gaia_g_gaia_rp']
-        except KeyError: color = np.zeros(len(mag))
+        if 'gaia_g_gaia_rp' in sources.photometry.measurement.keys():
+            color = sources.photometry.measurement['gaia_g_gaia_rp']
+        elif 'gaia_rp' in sources.photometry.measurement.keys():
+            color = sources.photometry.measurement['gaia_g'] - \
+                    sources.photometry.measurement['gaia_rp']
+        else:
+            color = np.zeros(mag.shape)
+            # if self.C>1:
+            #     warnings.warn("You need to pass in Gaia G-Grp photometric colour to use this selection function. Otherwise colour is set to zero by default.")
 
         # Evaluate selection function
         if method=='array':
+            # Get selection function from pre-evaluated grid (results from Everall&Boubert2022)
             selection_function = self._selection_function(mag, color, hpxidx)
         elif method=='gp':
             # Load spherical basis

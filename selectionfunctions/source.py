@@ -126,6 +126,54 @@ def ensure_gaia_g(f):
 
     return _wrapper_func
 
+def ensure_gaia_g_gaia_rp(f):
+    """
+    A decorator for class methods of the form
+
+    .. code-block:: python
+
+        Class.method(self, coords, **kwargs)
+
+    where ``coords`` is an :obj:`astropy.coordinates.SkyCoord` object.
+
+    The decorator ensures that the ``coords`` that gets passed to
+    ``Class.method`` is a flat array of Equatorial coordinates. It also reshapes
+    the output of ``Class.method`` to have the same shape (possibly scalar) as
+    the input ``coords``. If the output of ``Class.method`` is a tuple or list
+    (instead of an array), each element in the output is reshaped instead.
+
+    Args:
+        f (class method): A function with the signature
+            ``(self, coords, **kwargs)``, where ``coords`` is a :obj:`SkyCoord`
+            object containing an array.
+
+    Returns:
+        A function that takes :obj:`SkyCoord` input with any shape (including
+        scalar).
+    """
+
+    @wraps(f)
+    def _wrapper_func(self, sources, **kwargs):
+        # t0 = time.time()
+
+        has_photometry = hasattr(sources, 'photometry')
+        if has_photometry:
+            has_gaia_g_gaia_rp = ('gaia_g_gaia_rp' in sources.photometry.measurement.keys()) | \
+                                 (('gaia_g' in sources.photometry.measurement.keys())&\
+                                  ('gaia_rp'in sources.photometry.measurement.keys()))
+            if has_gaia_g_gaia_rp | ( not self.require_colour ):
+                pass
+            else:
+                print('No Gaia G-Grp passed.')
+                raise ValueError('You need to pass in Gaia G-Grp photometric colour to use this selection function.')
+        else:
+            raise ValueError('You need to pass in Gaia G-band photometric magnitudes and G-Grp colour  to use this selection function.')
+
+        out = f(self, sources, **kwargs)
+
+        return out
+
+    return _wrapper_func
 
 def ensure_tmass_hjk(f):
     """
