@@ -247,6 +247,7 @@ class subset_sf(SelectionFunction, CarpentryBase):
             # Get selection function from pre-evaluated grid (results from Everall&Boubert2022)
             selection_function = self._selection_function(mag, color, hpxidx)
         elif method=='gp':
+            raise ValueError('gp method not implemented.')
             # Load spherical basis
             if not hasattr(self, 'basis'):
                 print(f'Spherical Basis: {self.spherical_basis_file}')
@@ -280,6 +281,12 @@ class subset_sf(SelectionFunction, CarpentryBase):
         return p
 
     def _selection_function_gp(self, mag, color, pix):
+
+        # Bugs to fix for GP
+        # - Need to run _process_sigma(sigma) on start of class
+        #      - This means loading sigma from the results file
+        # - Need to work out how to evaluate the selection function using the GP results
+        # Current implementation gives clearly incorrect results
 
         # Load in sparse matrix
         nmodes = 0
